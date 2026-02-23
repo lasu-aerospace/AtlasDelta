@@ -91,7 +91,6 @@ input,textarea{font:inherit;color:inherit;}
 
 /* ── EDITOR TOOLBAR ── */
 .toolbar{display:flex;align-items:center;gap:2px;padding:0 4px;}
-/* Evitar que los botones del toolbar roben el foco del textarea */
 .tool-btn, .btool { user-select: none; }
 .tool-btn{background:none;border:1px solid transparent;border-radius:5px;padding:3px 7px;font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',monospace;transition:all .15s;}
 .tool-btn:hover{background:var(--s2);border-color:var(--border);color:var(--txt);}
@@ -287,7 +286,6 @@ input,textarea{font:inherit;color:inherit;}
 
 <!-- MAIN APP -->
 <div id="app" class="app" style="display:none;">
-  <!-- TOPBAR -->
   <header class="topbar">
     <div class="topbar-logo">⬡ <span>LabColab</span></div>
     <div class="topbar-sep"></div>
@@ -304,16 +302,12 @@ input,textarea{font:inherit;color:inherit;}
     </div>
   </header>
 
-  <!-- MAIN -->
   <div class="main-area">
-    <!-- LEFT PANEL -->
     <div class="panel-left" id="panel-left">
-      <!-- Panel tabs + toolbars -->
       <div class="panel-tabs" id="left-tabs">
         <button class="ptab active" data-panel="editor-view">✏ Texto</button>
         <button class="ptab" data-panel="board-view">◻ Pizarra</button>
         <div class="tab-spacer"></div>
-        <!-- Editor toolbar (shown in editor mode) -->
         <div class="toolbar" id="editor-toolbar">
           <button class="tool-btn" data-action="bold" title="Negrita Ctrl+B" onmousedown="event.preventDefault()"><b>B</b></button>
           <button class="tool-btn" data-action="italic" title="Cursiva Ctrl+I" onmousedown="event.preventDefault()"><i>I</i></button>
@@ -330,7 +324,6 @@ input,textarea{font:inherit;color:inherit;}
           <button class="tool-btn" data-action="ul" title="Lista" onmousedown="event.preventDefault()">≡</button>
           <button class="tool-btn" data-action="hr" title="Separador" onmousedown="event.preventDefault()">—</button>
         </div>
-        <!-- Board toolbar (shown in board mode) -->
         <div class="board-tools hidden" id="board-toolbar">
           <button class="btool active" data-btool="pen" title="Lápiz">✒</button>
           <button class="btool" data-btool="line" title="Línea">╱</button>
@@ -347,7 +340,6 @@ input,textarea{font:inherit;color:inherit;}
         </div>
       </div>
 
-      <!-- Editor view -->
       <div id="editor-view" class="view-content">
         <div class="editor-wrap">
           <textarea id="editor-textarea" class="editor-textarea" spellcheck="false"
@@ -356,7 +348,6 @@ input,textarea{font:inherit;color:inherit;}
         </div>
       </div>
 
-      <!-- Board view -->
       <div id="board-view" class="view-content hidden">
         <div class="board-wrap" id="board-wrap">
           <canvas id="board-canvas" class="board-canvas"></canvas>
@@ -365,25 +356,19 @@ input,textarea{font:inherit;color:inherit;}
       </div>
     </div>
 
-    <!-- RESIZE HANDLE -->
     <div id="resize-handle" class="resize-handle"></div>
 
-    <!-- RIGHT PANEL -->
     <div class="panel-right" id="panel-right">
       <div class="panel-tabs">
         <button class="ptab active" data-panel="preview-view">👁 Vista previa</button>
         <button class="ptab" data-panel="chat-view">💬 Chat <span id="chat-badge" class="badge hidden">0</span></button>
         <button class="ptab" data-panel="peers-view">👥 Peers</button>
       </div>
-
-      <!-- Preview -->
       <div id="preview-view" class="view-content">
         <div class="preview-wrap">
           <div id="preview-content"><p class="preview-empty">La vista previa aparecerá mientras escribes...</p></div>
         </div>
       </div>
-
-      <!-- Chat -->
       <div id="chat-view" class="view-content hidden">
         <div class="chat-wrap">
           <div id="chat-messages" class="chat-messages"></div>
@@ -394,15 +379,12 @@ input,textarea{font:inherit;color:inherit;}
           </div>
         </div>
       </div>
-
-      <!-- Peers -->
       <div id="peers-view" class="view-content hidden">
         <div class="peers-wrap" id="peers-list"></div>
       </div>
     </div>
   </div>
 
-  <!-- STATUS BAR -->
   <div class="status-bar">
     <div id="status-dot" class="status-dot disconnected"></div>
     <span id="status-text">Desconectado</span>
@@ -418,43 +400,24 @@ input,textarea{font:inherit;color:inherit;}
   </div>
 </div>
 
-<!-- TOAST -->
 <div id="toast" class="toast"></div>
 
-<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 
-<!-- importmap eliminado: se usan URLs absolutas en loadYjs() -->
-
 <script type="module">
-let Y, IndexeddbPersistence;
+'use strict'
 
-async function loadYjs() {
-  try {
-    // Cargar yjs primero, luego y-indexeddb indicándole que use la misma instancia
-    const yjsMod = await import('https://esm.sh/yjs@13.6.18?bundle')
-    // esm.sh bundle exporta las funciones como named exports en el módulo
-    Y = yjsMod.default ? { ...yjsMod.default, ...yjsMod } : yjsMod
-    // ?deps= hace que esm.sh resuelva yjs como peer dep en lugar de bundlearlo de nuevo
-    const idbMod = await import('https://esm.sh/y-indexeddb@9.0.12?deps=yjs@13.6.18&bundle')
-    IndexeddbPersistence = idbMod.IndexeddbPersistence
-    return true
-  } catch(e) {
-    console.error('Error cargando librerías:', e)
-    return false
-  }
-}
-
-/* ═══════════════════════════════════════════════
-   CONSTANTS & STATE
-════════════════════════════════════════════════ */
-const PEER_COLORS = ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#34d399','#fb923c','#e879f9']
-
-// ▼▼▼ CAMBIA ESTO con la URL de tu Cloudflare Worker después del deploy ▼▼▼
-const RELAY_URL = 'wss://labcolab-relay.TU_USUARIO.workers.dev'
-// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-const DEFAULT_DOC = `# Nuevo documento científico
+/* ═══════════════════════════════════════════════════════════════════
+   CONFIG
+   Constantes que el operador puede cambiar antes del deploy.
+═══════════════════════════════════════════════════════════════════ */
+const CONFIG = Object.freeze({
+  // ▼▼▼ Cambia esto con la URL de tu Cloudflare Worker ▼▼▼
+  RELAY_URL:       'wss://labcolab-relay.TU_USUARIO.workers.dev',
+  RECONNECT_DELAY: 3000,
+  PEER_COLORS:     ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#34d399','#fb923c','#e879f9'],
+  DEFAULT_DOC: `# Nuevo documento científico
 
 Bienvenido a **LabColab** — editor colaborativo descentralizado. Comparte el código de sala con tus colaboradores.
 
@@ -481,999 +444,1242 @@ $$\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}$$
 
 1. Einstein, A. (1905). *Zur Elektrodynamik bewegter Körper*. Annalen der Physik.
 2. Maxwell, J.C. (1865). *A Dynamical Theory of the Electromagnetic Field*.
-`
+`,
+})
 
-const S = {
-  peerId: null, name: 'Anónimo', role: 'observer', roomId: null,
-  connected: false, leftPanel: 'editor-view', rightPanel: 'preview-view',
-  boardTool: 'pen', boardColor: '#4ade80', boardWidth: 2,
-  drawing: false, activeStroke: null, strokes: [], unread: 0,
-}
+/* ═══════════════════════════════════════════════════════════════════
+   UTILS
+   Funciones puras sin efectos secundarios ni dependencias de DOM.
+═══════════════════════════════════════════════════════════════════ */
+const Utils = (() => {
+  const $ = id => document.getElementById(id)
 
-/* ═══════════════════════════════════════════════
-   UTILITIES
-════════════════════════════════════════════════ */
-const $ = id => document.getElementById(id)
-const rand = (n=16) => {
-  // Loop until we accumulate enough base-36 chars to guarantee length n
-  let s = ''
-  while (s.length < n) s += Math.random().toString(36).slice(2)
-  return s.slice(0, n).toUpperCase()
-}
-const genId = () => rand(8) + '-' + rand(4) + '-' + rand(4)
-const genRoom = () => rand(3) + rand(3)
-const peerColor = peerId => PEER_COLORS[Math.abs(hashStr(peerId)) % PEER_COLORS.length]
-const hashStr = s => s.split('').reduce((h,c) => (Math.imul(31,h)+c.charCodeAt(0))|0, 0)
-const initials = name => name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '??'
-const clamp = (v,a,b) => Math.max(a, Math.min(b, v))
-const debounce = (fn, delay) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); }; }
-
-function applyDiff(yt, oldStr, newStr, doc) {
-  let i=0, j=oldStr.length, k=newStr.length
-  while (i<j && i<k && oldStr[i]===newStr[i]) i++
-  while (j>i && k>i && oldStr[j-1]===newStr[k-1]) { j--; k-- }
-  doc.transact(() => {
-    if (j>i) yt.delete(i, j-i)
-    if (k>i) yt.insert(i, newStr.slice(i,k))
-  }, 'local')
-}
-
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')
-}
-
-function toast(msg, dur=2800) {
-  const el = $('toast')
-  el.textContent = msg
-  el.classList.add('show')
-  setTimeout(() => el.classList.remove('show'), dur)
-}
-
-function download(filename, content, mime='text/plain') {
-  const a = document.createElement('a')
-  const url = URL.createObjectURL(new Blob([content], {type: mime}))
-  a.href = url
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  // Delay revoke so browser has time to initiate the download
-  setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 200)
-}
-
-/* ═══════════════════════════════════════════════
-   YJS CORE
-════════════════════════════════════════════════ */
-let ydoc, yText, yStrokes, yChat, ySession, yMeta
-let idb, undoManager
-let lastEditorValue = ''
-let awareness = null  // awareness simulado local
-
-// ── Capa de sincronización propia (reemplaza y-webrtc) ──────────────────────
-let relayWS = null
-let cryptoKey = null  // CryptoKey AES-GCM derivada de la contraseña
-
-// Deriva una CryptoKey AES-256-GCM a partir de la contraseña y roomId (PBKDF2)
-async function deriveKey(password, roomId) {
-  const enc = new TextEncoder()
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', enc.encode(password || 'labcolab-default'),
-    { name: 'PBKDF2' }, false, ['deriveKey']
-  )
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: enc.encode('labcolab-' + roomId), iterations: 100000, hash: 'SHA-256' },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false, ['encrypt', 'decrypt']
-  )
-}
-
-async function encryptMsg(data) {
-  if (!cryptoKey) return data instanceof ArrayBuffer ? data : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  // Normalizar a ArrayBuffer limpio
-  const buf = data instanceof Uint8Array
-    ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-    : data
-  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, buf)
-  const out = new Uint8Array(12 + ct.byteLength)
-  out.set(iv, 0)
-  out.set(new Uint8Array(ct), 12)
-  return out.buffer
-}
-
-async function decryptMsg(data) {
-  if (!cryptoKey) return data
-  try {
-    const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer()
-    const arr = new Uint8Array(buf)
-    const iv = arr.slice(0, 12)
-    const ct = arr.slice(12)
-    return await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ct)
-  } catch {
-    return null  // mensaje con clave incorrecta o corrupto
-  }
-}
-
-// Conecta al Worker y sincroniza el ydoc por WebSocket
-function connectRelay(roomId, password, onOpen) {
-  const url = RELAY_URL.replace(/\/+$/, '') + '/room/' + roomId
-  relayWS = new WebSocket(url)
-  relayWS.binaryType = 'arraybuffer'
-
-  relayWS.addEventListener('open', () => {
-    $('status-dot').className = 'status-dot connected'
-    $('status-text').textContent = 'Conectado'
-    S.connected = true
-    if (onOpen) onOpen()
-  })
-
-  relayWS.addEventListener('message', async (e) => {
-    const raw = await decryptMsg(e.data)
-    if (!raw) return  // descifrado fallido = clave incorrecta, ignorar
-    const msg = tryParseMsg(new Uint8Array(raw))
-    if (!msg) return
-
-    if (msg.type === 'sync') {
-      try {
-        Y.applyUpdate(ydoc, msg.update, 'remote')
-      } catch(e) {
-        console.warn('Error aplicando update Yjs:', e)
-      }
-    } else if (msg.type === 'awareness') {
-      // Estado de awareness de otro peer
-      handleRemoteAwareness(msg)
-    }
-  })
-
-  relayWS.addEventListener('close', () => {
-    $('status-dot').className = 'status-dot disconnected'
-    $('status-text').textContent = 'Desconectado — reconectando...'
-    S.connected = false
-    setTimeout(() => connectRelay(roomId, password, () => {
-      if (ydoc) {
-        const fullUpdate = Y.encodeStateAsUpdate(ydoc)
-        sendRelay('sync', fullUpdate)
-      }
-      if (awareness) {
-        awareness.setLocalState({
-          name: S.name, role: S.role,
-          color: peerColor(S.peerId),
-          cursor: null, boardStroke: null
-        })
-      }
-    }), 3000)
-  })
-
-  relayWS.addEventListener('error', () => {
-    $('status-dot').className = 'status-dot disconnected'
-    $('status-text').textContent = 'Error de conexión'
-  })
-}
-
-// Codifica un mensaje para enviar por el relay
-function encodeMsg(type, payload) {
-  // Formato simple: 1 byte tipo + payload
-  // tipo: 0x01 = sync (Yjs update), 0x02 = awareness
-  const typeMap = { sync: 0x01, awareness: 0x02 }
-  const t = typeMap[type]
-  const out = new Uint8Array(1 + payload.length)
-  out[0] = t
-  out.set(payload, 1)
-  return out
-}
-
-function tryParseMsg(arr) {
-  if (!arr || arr.length < 2) return null
-  const typeMap = { 0x01: 'sync', 0x02: 'awareness' }
-  const type = typeMap[arr[0]]
-  if (!type) return null
-  return { type, update: arr.slice(1) }
-}
-
-async function sendRelay(type, payload) {
-  if (!relayWS || relayWS.readyState !== WebSocket.OPEN) return
-  const msg = encodeMsg(type, payload)
-  const encrypted = await encryptMsg(msg)
-  relayWS.send(encrypted)
-}
-
-// ── Awareness simulado ───────────────────────────────────────────────────────
-const awarenessStates = new Map()  // clientId → state
-const awarenessCallbacks = []
-
-function onAwarenessChange(cb) { awarenessCallbacks.push(cb) }
-function fireAwarenessChange() { awarenessCallbacks.forEach(cb => cb()) }
-
-function broadcastAwareness() {
-  if (!relayWS || relayWS.readyState !== WebSocket.OPEN) return
-  const myState = awarenessStates.get(S.peerId) || {}
-  const payload = new TextEncoder().encode(JSON.stringify({
-    clientId: S.peerId,
-    state: myState
-  }))
-  sendRelay('awareness', payload)
-}
-
-function handleRemoteAwareness(msg) {
-  try {
-    const { clientId, state } = JSON.parse(new TextDecoder().decode(msg.update))
-    if (state === null) {
-      awarenessStates.delete(clientId)
-    } else {
-      awarenessStates.set(clientId, state)
-    }
-    fireAwarenessChange()
-    updatePeersUI()
-    updatePeersBar()
-  } catch {}
-}
-
-// Polyfill del objeto awareness que usaba el código original
-function makeAwareness() {
-  return {
-    getStates: () => {
-      const m = new Map(awarenessStates)
-      // Incluir el estado local
-      const localState = awarenessStates.get(S.peerId)
-      if (localState) m.set(parseInt(S.peerId) || S.peerId, localState)
-      return m
-    },
-    setLocalState: (state) => {
-      awarenessStates.set(S.peerId, state)
-      broadcastAwareness()
-    },
-    setLocalStateField: (field, value) => {
-      const cur = awarenessStates.get(S.peerId) || {}
-      cur[field] = value
-      awarenessStates.set(S.peerId, cur)
-      broadcastAwareness()
-    },
-    on: (event, cb) => { if (event === 'change') onAwarenessChange(cb) }
-  }
-}
-
-async function initYjs(roomId, password, isHost) {
-  const loaded = await loadYjs()
-  if (!loaded) {
-    toast('Error: no se pudieron cargar las librerías. Modo local activo.')
-    $('status-dot').className = 'status-dot disconnected'
-    $('status-text').textContent = 'Sin conexión'
-    return
+  // Garantiza exactamente n caracteres base-36 en mayúsculas
+  const rand = (n = 16) => {
+    let s = ''
+    while (s.length < n) s += Math.random().toString(36).slice(2)
+    return s.slice(0, n).toUpperCase()
   }
 
-  // Derivar clave de cifrado AES-GCM a partir de contraseña + roomId
-  cryptoKey = await deriveKey(password, roomId)
+  const genId   = () => rand(8) + '-' + rand(4) + '-' + rand(4)
+  const genRoom = () => rand(3) + rand(3)
 
-  ydoc = new Y.Doc()
-  yText    = ydoc.getText('editor')
-  yStrokes = ydoc.getArray('strokes')
-  yChat    = ydoc.getArray('chat')
-  ySession = ydoc.getMap('session')
-  yMeta    = ydoc.getMap('meta')
+  const hashStr   = s => s.split('').reduce((h, c) => (Math.imul(31, h) + c.charCodeAt(0)) | 0, 0)
+  const peerColor = id => CONFIG.PEER_COLORS[Math.abs(hashStr(id)) % CONFIG.PEER_COLORS.length]
+  const initials  = name => name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??'
+  const clamp     = (v, a, b) => Math.max(a, Math.min(b, v))
+  const escHtml   = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
-  S.peerId = ydoc.clientID.toString()
-  awareness = makeAwareness()
-
-  const roomKey = `labcolab-${roomId}`
-
-  // Helper: vuelca yText al editor
-  function syncEditorFromYjs() {
-    const ta = $('editor-textarea')
-    const newVal = yText.toString()
-    if (ta.value !== newVal) {
-      ta.value = newVal
-      lastEditorValue = newVal
-      updatePreview()
-      updateWordCount()
-      computeAndShowHash()
-    }
+  const debounce = (fn, delay) => {
+    let t
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay) }
   }
 
-  // IndexedDB persistence (caché local)
-  idb = new IndexeddbPersistence(roomKey, ydoc)
-  idb.on('synced', () => {
-    if (isHost && yText.length === 0) {
-      ydoc.transact(() => yText.insert(0, DEFAULT_DOC), 'init')
-    }
-    syncEditorFromYjs()
-  })
+  // Aplica un diff mínimo entre oldStr y newStr sobre un Y.Text
+  const applyDiff = (yt, oldStr, newStr, doc) => {
+    let i = 0, j = oldStr.length, k = newStr.length
+    while (i < j && i < k && oldStr[i] === newStr[i]) i++
+    while (j > i && k > i && oldStr[j-1] === newStr[k-1]) { j--; k-- }
+    doc.transact(() => {
+      if (j > i) yt.delete(i, j - i)
+      if (k > i) yt.insert(i, newStr.slice(i, k))
+    }, 'local')
+  }
 
-  // Handler para updates del ydoc:
-  // - 'local': cambio del usuario → enviar al relay
-  // - 'init': inserción del DEFAULT_DOC → enviar al relay
-  // - 'remote': recibido del relay → yText.observe ya actualiza el editor, no duplicar
-  // - null/idb: carga desde IndexedDB → NO enviar al relay (evita flooding al reconectar)
-  ydoc.on('update', (update, origin) => {
-    if (origin === 'local' || origin === 'init') {
-      sendRelay('sync', update)
-    }
-    // origin === 'remote': yText.observe en setupEditorSync maneja el refresco del editor
-    // origin === null (IDB): no hacer nada extra
-  })
+  const sha256 = async text => {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
 
-  // Conectar al relay; al abrir: enviar snapshot + anunciar presencia
-  connectRelay(roomId, password, () => {
-    // Enviar estado completo para que cualquier peer sincronice al conectarse
-    const fullUpdate = Y.encodeStateAsUpdate(ydoc)
-    sendRelay('sync', fullUpdate)
-    // Anunciar presencia
-    awareness.setLocalState({
-      name: S.name, role: S.role,
-      color: peerColor(S.peerId),
-      cursor: null, boardStroke: null
+  // Descarga un archivo cross-browser (Safari/Firefox requieren anchor en el DOM)
+  const download = (filename, content, mime = 'text/plain') => {
+    const a = document.createElement('a')
+    const url = URL.createObjectURL(new Blob([content], { type: mime }))
+    a.href = url
+    a.download = filename
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 300)
+  }
+
+  return { $, rand, genId, genRoom, peerColor, initials, clamp, escHtml,
+           debounce, applyDiff, sha256, download }
+})()
+
+const { $, genId, genRoom, peerColor, initials, clamp, escHtml,
+        debounce, applyDiff, sha256, download } = Utils
+
+/* ═══════════════════════════════════════════════════════════════════
+   STATE
+   Un único objeto de estado de sesión. Inmutable durante la sesión
+   salvo a través de métodos explícitos de cada módulo.
+═══════════════════════════════════════════════════════════════════ */
+const State = (() => {
+  let _s = {
+    // Identidad
+    peerId:    null,
+    name:      'Anónimo',
+    role:      'observer',
+    roomId:    null,
+    // Conexión
+    connected: false,
+    // UI
+    leftPanel:  'editor-view',
+    rightPanel: 'preview-view',
+    unread:     0,
+    _lastRoleTs: 0,
+    // Pizarra
+    boardTool:    'pen',
+    boardColor:   '#4ade80',
+    boardWidth:   2,
+    drawing:      false,
+    activeStroke: null,
+    strokes:      [],
+  }
+
+  // Proxy para detectar mutaciones no autorizadas en desarrollo
+  const get = key       => _s[key]
+  const set = (key, v)  => { _s[key] = v }
+  const patch = (obj)   => { Object.assign(_s, obj) }
+  const snapshot = ()   => ({ ..._s })
+
+  return { get, set, patch, snapshot }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
+   EVENT BUS
+   Canal de comunicación desacoplado entre módulos.
+   Ningún módulo llama funciones de otro módulo directamente.
+═══════════════════════════════════════════════════════════════════ */
+const Bus = (() => {
+  const _listeners = {}
+
+  const on = (event, cb) => {
+    if (!_listeners[event]) _listeners[event] = []
+    _listeners[event].push(cb)
+  }
+
+  const off = (event, cb) => {
+    if (!_listeners[event]) return
+    _listeners[event] = _listeners[event].filter(fn => fn !== cb)
+  }
+
+  const emit = (event, data) => {
+    ;(_listeners[event] || []).forEach(cb => {
+      try { cb(data) }
+      catch(e) { console.error(`Bus error [${event}]:`, e) }
     })
-  })
-
-  onAwarenessChange(() => {
-    updatePeersUI()
-    updatePeersBar()
-    renderBoardAwareness()
-  })
-
-  // Undo manager
-  undoManager = new Y.UndoManager(yText, { captureTimeout: 500 })
-
-  setupEditorSync()
-  setupChatSync()
-  setupBoardSync()
-
-  if (isHost) {
-    ySession.set('host', S.peerId)
-    ySession.set('hostName', S.name)
-    ySession.set('created', Date.now())
-    yMeta.set('title', 'Nuevo documento')
   }
-}
 
-/* ═══════════════════════════════════════════════
+  return { on, off, emit }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
+   UI MODULE
+   Todas las actualizaciones del DOM viven aquí.
+   Escucha eventos del Bus para renderizarse.
+═══════════════════════════════════════════════════════════════════ */
+const UI = (() => {
+  // ── Toast ──────────────────────────────────────────────────────
+  let _toastTimer = null
+  const toast = (msg, dur = 2800) => {
+    const el = $('toast')
+    el.textContent = msg
+    el.classList.add('show')
+    clearTimeout(_toastTimer)
+    _toastTimer = setTimeout(() => el.classList.remove('show'), dur)
+  }
+
+  // ── Connection status ──────────────────────────────────────────
+  const setConnectionStatus = (status) => {
+    // status: 'connected' | 'connecting' | 'disconnected'
+    const dot  = $('status-dot')
+    const text = $('status-text')
+    dot.className = 'status-dot ' + status
+    const labels = {
+      connected:    'Conectado',
+      connecting:   'Conectando...',
+      disconnected: 'Desconectado — reconectando...',
+      error:        'Error de conexión',
+    }
+    text.textContent = labels[status] ?? status
+  }
+
+  // ── Role chip ──────────────────────────────────────────────────
+  const setRole = (role) => {
+    const chip = $('role-chip')
+    chip.className = 'role-chip role-' + role
+    chip.textContent = role
+    const ta = $('editor-textarea')
+    ta.readOnly    = (role === 'observer')
+    ta.style.opacity = role === 'observer' ? '0.6' : '1'
+  }
+
+  // ── Status bar ─────────────────────────────────────────────────
+  const setWordCount = (words) => {
+    $('word-count').textContent = words + ' palabras'
+  }
+
+  const setHash = (h) => {
+    $('status-hash').textContent = h ? 'SHA-256: ' + h.slice(0, 16) + '...' : ''
+  }
+
+  const setSaveStatus = (msg) => {
+    $('status-save').textContent = msg
+  }
+
+  const setPeersCount = (n) => {
+    $('status-peers').textContent = n + (n === 1 ? ' peer' : ' peers')
+  }
+
+  // ── Peers bar (avatares en topbar) ─────────────────────────────
+  const renderPeersBar = (states) => {
+    const bar = $('peers-bar')
+    bar.innerHTML = ''
+    let i = 0
+    states.forEach((state, clientId) => {
+      if (!state || !state.name || i >= 6) return
+      i++
+      const color = state.color || peerColor(clientId.toString())
+      const el = document.createElement('div')
+      el.className   = 'peer-avatar'
+      el.style.background = color
+      el.style.color = '#0d0e12'
+      el.textContent = initials(state.name)
+      el.title = state.name + (clientId.toString() === State.get('peerId') ? ' (tú)' : '')
+      bar.appendChild(el)
+    })
+  }
+
+  // ── Peers list (panel) ─────────────────────────────────────────
+  const renderPeersList = (states) => {
+    const list = $('peers-list')
+    list.innerHTML = ''
+    let count = 0
+    const myPeerId = State.get('peerId')
+    const myRole   = State.get('role')
+
+    states.forEach((state, clientId) => {
+      if (!state || !state.name) return
+      count++
+      const cid   = clientId.toString()
+      const isMe  = cid === myPeerId
+      const color = state.color || peerColor(cid)
+      const role  = state.role || 'editor'
+
+      const div = document.createElement('div')
+      div.className = 'peer-item'
+      div.innerHTML = `
+        <div class="peer-dot" style="background:${color}"></div>
+        <div class="peer-info">
+          <div class="peer-name">${escHtml(state.name)}${isMe ? ' <span style="color:var(--txt3);font-size:11px;">(tú)</span>' : ''}</div>
+          <div class="peer-status">${role} · ${isMe ? 'local' : 'remoto'}</div>
+        </div>
+        ${myRole === 'host' && !isMe ? `
+          <div class="peer-actions">
+            <button class="peer-action-btn" onclick="App.setRole(${JSON.stringify(cid)}, 'editor')">Editor</button>
+            <button class="peer-action-btn" onclick="App.setRole(${JSON.stringify(cid)}, 'observer')">Obs.</button>
+          </div>` : ''}
+      `
+      list.appendChild(div)
+    })
+
+    setPeersCount(states.has(myPeerId) ? count : count + 1)
+    renderTypingIndicator(states)
+  }
+
+  // ── Typing indicator ───────────────────────────────────────────
+  const renderTypingIndicator = (states) => {
+    const myPeerId = State.get('peerId')
+    const typing = []
+    states.forEach((state, id) => {
+      if (id.toString() !== myPeerId && state && state.typing && state.name)
+        typing.push(state.name.split(' ')[0])
+    })
+    $('typing-indicator').textContent =
+      typing.length ? `${typing.slice(0, 2).join(', ')} está escribiendo...` : ''
+  }
+
+  // ── Chat message ───────────────────────────────────────────────
+  const appendChatMsg = (msg) => {
+    const container  = $('chat-messages')
+    const atBottom   = container.scrollHeight - container.scrollTop - container.clientHeight < 40
+    const myPeerId   = State.get('peerId')
+
+    if (msg.type === 'system') {
+      const el = document.createElement('div')
+      el.className   = 'chat-sys'
+      el.textContent = msg.text
+      container.appendChild(el)
+    } else {
+      const isOwn = msg.peerId === myPeerId
+      const div   = document.createElement('div')
+      div.className = 'chat-msg' + (isOwn ? ' own' : '')
+      const time  = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      div.innerHTML = `
+        <div class="msg-meta">
+          <span class="msg-author" style="color:${msg.color || 'var(--accent)'}">${escHtml(msg.name || '?')}</span>
+          <span>${time}</span>
+        </div>
+        <div class="msg-bubble">${escHtml(msg.text)}</div>
+      `
+      container.appendChild(div)
+
+      // Badge de no leídos cuando el panel de chat no está activo
+      if (State.get('rightPanel') !== 'chat-view' && !isOwn) {
+        const unread = State.get('unread') + 1
+        State.set('unread', unread)
+        const badge = $('chat-badge')
+        badge.textContent = unread > 9 ? '9+' : unread
+        badge.classList.remove('hidden')
+      }
+    }
+
+    if (atBottom) container.scrollTop = container.scrollHeight
+  }
+
+  // ── Panel switching ────────────────────────────────────────────
+  const switchPanel = (target, side) => {
+    const panelId = side === 'left' ? 'panel-left' : 'panel-right'
+    const panel   = $(panelId)
+
+    panel.querySelectorAll('[data-panel]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.panel === target)
+    })
+    panel.querySelectorAll('.view-content').forEach(v => {
+      v.classList.toggle('hidden', v.id !== target)
+    })
+
+    if (side === 'left') {
+      State.set('leftPanel', target)
+      $('editor-toolbar').classList.toggle('hidden', target !== 'editor-view')
+      $('board-toolbar').classList.toggle('hidden', target !== 'board-view')
+    } else {
+      State.set('rightPanel', target)
+      if (target === 'chat-view') {
+        State.set('unread', 0)
+        $('chat-badge').classList.add('hidden')
+        $('chat-messages').scrollTop = $('chat-messages').scrollHeight
+        $('chat-input').focus()
+      }
+    }
+
+    Bus.emit('panel:switched', { target, side })
+  }
+
+  // ── App visibility ─────────────────────────────────────────────
+  const showApp = (roomId) => {
+    $('modal-overlay').classList.remove('active')
+    $('room-code-display').textContent = roomId
+    const app = $('app')
+    app.style.display = 'flex'
+    setTimeout(() => app.classList.add('visible'), 50)
+    setConnectionStatus('connecting')
+    const url = new URL(location.href)
+    url.searchParams.set('room', roomId)
+    history.pushState({}, '', url)
+  }
+
+  // ── Preview ────────────────────────────────────────────────────
+  const renderPreview = (html) => {
+    $('preview-content').innerHTML = html ||
+      '<p class="preview-empty">La vista previa aparecerá mientras escribes...</p>'
+  }
+
+  // ── Hash display in export modal ───────────────────────────────
+  const setDocHash = (h) => {
+    $('doc-hash').textContent = h
+  }
+
+  // ── Bus subscriptions ──────────────────────────────────────────
+  Bus.on('awareness:changed',  ({ states }) => { renderPeersBar(states); renderPeersList(states) })
+  Bus.on('connection:status',  ({ status }) => setConnectionStatus(status))
+  Bus.on('editor:wordcount',   ({ words })  => setWordCount(words))
+  Bus.on('editor:hash',        ({ hash })   => setHash(hash))
+  Bus.on('editor:saved',       ()           => { setSaveStatus('✓ Guardado'); setTimeout(() => setSaveStatus('Guardado local'), 2000) })
+  Bus.on('role:changed',       ({ role })   => setRole(role))
+  Bus.on('chat:message',       ({ msg })    => appendChatMsg(msg))
+  Bus.on('preview:rendered',   ({ html })   => renderPreview(html))
+
+  return { toast, setRole, setConnectionStatus, showApp, switchPanel,
+           renderPeersBar, renderPeersList, setDocHash, setHash }
+})()
+
+// Exponer toast globalmente para conveniencia interna
+const toast = UI.toast
+
+/* ═══════════════════════════════════════════════════════════════════
+   CRYPTO MODULE
+   Encriptación AES-256-GCM para mensajes del relay.
+═══════════════════════════════════════════════════════════════════ */
+const Crypto = (() => {
+  let _key = null
+
+  const init = async (password, roomId) => {
+    const enc = new TextEncoder()
+    const material = await crypto.subtle.importKey(
+      'raw', enc.encode(password || 'labcolab-default'),
+      { name: 'PBKDF2' }, false, ['deriveKey']
+    )
+    _key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: enc.encode('labcolab-' + roomId), iterations: 100000, hash: 'SHA-256' },
+      material,
+      { name: 'AES-GCM', length: 256 },
+      false, ['encrypt', 'decrypt']
+    )
+  }
+
+  const encrypt = async (data) => {
+    if (!_key) {
+      // Sin clave: pasar los bytes tal cual como ArrayBuffer
+      return data instanceof Uint8Array
+        ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+        : data
+    }
+    const iv  = crypto.getRandomValues(new Uint8Array(12))
+    const buf = data instanceof Uint8Array
+      ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      : data
+    const ct  = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, _key, buf)
+    const out = new Uint8Array(12 + ct.byteLength)
+    out.set(iv, 0)
+    out.set(new Uint8Array(ct), 12)
+    return out.buffer
+  }
+
+  const decrypt = async (data) => {
+    if (!_key) return data
+    try {
+      const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer()
+      const arr = new Uint8Array(buf)
+      return await crypto.subtle.decrypt({ name: 'AES-GCM', iv: arr.slice(0, 12) }, _key, arr.slice(12))
+    } catch {
+      return null // clave incorrecta o mensaje corrupto
+    }
+  }
+
+  return { init, encrypt, decrypt }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
+   RELAY MODULE
+   WebSocket con reconexión automática y codec binario propio.
+   Protocolo: 1 byte tipo (0x01=sync, 0x02=awareness) + payload.
+═══════════════════════════════════════════════════════════════════ */
+const Relay = (() => {
+  let _ws       = null
+  let _roomId   = null
+  let _password = null
+
+  const TYPE = { sync: 0x01, awareness: 0x02 }
+  const TYPE_INV = { [TYPE.sync]: 'sync', [TYPE.awareness]: 'awareness' }
+
+  const _encode = (type, payload) => {
+    // payload debe ser Uint8Array
+    const out = new Uint8Array(1 + payload.length)
+    out[0] = TYPE[type]
+    out.set(payload, 1)
+    return out
+  }
+
+  const _decode = (arr) => {
+    if (!arr || arr.length < 2) return null
+    const type = TYPE_INV[arr[0]]
+    return type ? { type, payload: arr.slice(1) } : null
+  }
+
+  const send = async (type, payload) => {
+    if (!_ws || _ws.readyState !== WebSocket.OPEN) return
+    const encoded   = _encode(type, payload)
+    const encrypted = await Crypto.encrypt(encoded)
+    _ws.send(encrypted)
+  }
+
+  const _connect = (onOpen) => {
+    const url = CONFIG.RELAY_URL.replace(/\/+$/, '') + '/room/' + _roomId
+    _ws = new WebSocket(url)
+    _ws.binaryType = 'arraybuffer'
+
+    _ws.addEventListener('open', () => {
+      Bus.emit('connection:status', { status: 'connected' })
+      State.set('connected', true)
+      if (onOpen) onOpen()
+    })
+
+    _ws.addEventListener('message', async (e) => {
+      const raw = await Crypto.decrypt(e.data)
+      if (!raw) return
+      const msg = _decode(new Uint8Array(raw))
+      if (!msg) return
+      Bus.emit('relay:message', msg)
+    })
+
+    _ws.addEventListener('close', () => {
+      Bus.emit('connection:status', { status: 'disconnected' })
+      State.set('connected', false)
+      setTimeout(() => _connect(() => {
+        Bus.emit('relay:reconnected')
+      }), CONFIG.RECONNECT_DELAY)
+    })
+
+    _ws.addEventListener('error', () => {
+      Bus.emit('connection:status', { status: 'error' })
+    })
+  }
+
+  const connect = (roomId, password, onOpen) => {
+    _roomId   = roomId
+    _password = password
+    _connect(onOpen)
+  }
+
+  return { connect, send }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
+   AWARENESS MODULE
+   Implementación propia de awareness Yjs compatible con el relay.
+═══════════════════════════════════════════════════════════════════ */
+const Awareness = (() => {
+  const _states    = new Map()  // clientId (string) → state
+  const _listeners = []
+
+  const getStates = () => new Map(_states)
+
+  const setLocalState = (state) => {
+    const id = State.get('peerId')
+    if (!id) return
+    _states.set(id, state)
+    _broadcast()
+  }
+
+  const setLocalField = (field, value) => {
+    const id  = State.get('peerId')
+    if (!id) return
+    const cur = _states.get(id) || {}
+    cur[field] = value
+    _states.set(id, cur)
+    _broadcast()
+  }
+
+  const _broadcast = () => {
+    const id = State.get('peerId')
+    if (!id) return
+    const payload = new TextEncoder().encode(JSON.stringify({
+      clientId: id,
+      state:    _states.get(id) || {}
+    }))
+    Relay.send('awareness', payload)
+  }
+
+  // Mensaje de awareness recibido del relay
+  const handleIncoming = (payloadBytes) => {
+    try {
+      const { clientId, state } = JSON.parse(new TextDecoder().decode(payloadBytes))
+      if (state === null) {
+        _states.delete(clientId)
+      } else {
+        _states.set(clientId, state)
+      }
+      Bus.emit('awareness:changed', { states: getStates() })
+    } catch(e) {
+      console.warn('Awareness parse error:', e)
+    }
+  }
+
+  // Objeto compatible con el API awareness de Yjs (para UndoManager etc.)
+  const yjsCompat = {
+    getStates,
+    setLocalState,
+    setLocalStateField: setLocalField,
+    on: (event, cb) => { if (event === 'change') _listeners.push(cb) },
+  }
+
+  Bus.on('relay:message', (msg) => {
+    if (msg.type === 'awareness') handleIncoming(msg.payload)
+  })
+
+  return { getStates, setLocalState, setLocalField, yjsCompat }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
+   YJS MODULE
+   Gestiona el documento CRDT, persistencia IDB, y sincronización.
+═══════════════════════════════════════════════════════════════════ */
+const Yjs = (() => {
+  let _Y, _IndexeddbPersistence
+  let _doc, _text, _strokes, _chat, _session, _meta
+  let _undoManager
+  let _idb
+
+  const load = async () => {
+    try {
+      const yjsMod = await import('https://esm.sh/yjs@13.6.18?bundle')
+      _Y = yjsMod.default ? { ...yjsMod.default, ...yjsMod } : yjsMod
+      const idbMod = await import('https://esm.sh/y-indexeddb@9.0.12?deps=yjs@13.6.18&bundle')
+      _IndexeddbPersistence = idbMod.IndexeddbPersistence
+      return true
+    } catch(e) {
+      console.error('Error cargando librerías Yjs:', e)
+      return false
+    }
+  }
+
+  const init = async (roomId, password, isHost) => {
+    const ok = await load()
+    if (!ok) {
+      toast('Error: no se pudieron cargar las librerías. Modo local activo.')
+      Bus.emit('connection:status', { status: 'disconnected' })
+      return false
+    }
+
+    await Crypto.init(password, roomId)
+
+    _doc     = new _Y.Doc()
+    _text    = _doc.getText('editor')
+    _strokes = _doc.getArray('strokes')
+    _chat    = _doc.getArray('chat')
+    _session = _doc.getMap('session')
+    _meta    = _doc.getMap('meta')
+
+    State.set('peerId', _doc.clientID.toString())
+
+    // Persistencia local IDB
+    _idb = new _IndexeddbPersistence(`labcolab-${roomId}`, _doc)
+    _idb.on('synced', () => {
+      if (isHost && _text.length === 0) {
+        _doc.transact(() => _text.insert(0, CONFIG.DEFAULT_DOC), 'init')
+      }
+      Bus.emit('yjs:synced')
+    })
+
+    // Reenviar al relay solo cambios generados localmente
+    // 'local' = edición del usuario
+    // 'init'  = inserción del DEFAULT_DOC por el host
+    // No reenviar: 'remote' (eco), null/idb (flood desde IndexedDB)
+    _doc.on('update', (update, origin) => {
+      if (origin === 'local' || origin === 'init') {
+        Relay.send('sync', update)
+      }
+    })
+
+    // Aplicar updates remotos recibidos del relay
+    Bus.on('relay:message', (msg) => {
+      if (msg.type === 'sync') {
+        try { _Y.applyUpdate(_doc, msg.payload, 'remote') }
+        catch(e) { console.warn('Error aplicando update Yjs:', e) }
+      }
+    })
+
+    // Al reconectar: reenviar snapshot completo y re-anunciar presencia
+    Bus.on('relay:reconnected', () => {
+      Relay.send('sync', _Y.encodeStateAsUpdate(_doc))
+      Awareness.setLocalState({
+        name: State.get('name'), role: State.get('role'),
+        color: Utils.peerColor(State.get('peerId')),
+        cursor: null, boardStroke: null,
+      })
+    })
+
+    // Conectar relay y anunciar presencia al abrir
+    Relay.connect(roomId, password, () => {
+      Relay.send('sync', _Y.encodeStateAsUpdate(_doc))
+      Awareness.setLocalState({
+        name: State.get('name'), role: State.get('role'),
+        color: Utils.peerColor(State.get('peerId')),
+        cursor: null, boardStroke: null,
+      })
+    })
+
+    _undoManager = new _Y.UndoManager(_text, { captureTimeout: 500 })
+
+    if (isHost) {
+      _session.set('host',     State.get('peerId'))
+      _session.set('hostName', State.get('name'))
+      _session.set('created',  Date.now())
+      _meta.set('title', 'Nuevo documento')
+    }
+
+    return true
+  }
+
+  // Escucha cambios del ySession para señales de rol
+  const watchRoleSignals = () => {
+    if (!_session) return
+    _session.observe(event => {
+      if (!event.keysChanged.has('roleSignals')) return
+      const signals = _session.get('roleSignals') || {}
+      const myId    = _doc.clientID.toString()
+      const signal  = signals[myId]
+      if (signal && signal.ts > State.get('_lastRoleTs')) {
+        State.set('_lastRoleTs', signal.ts)
+        State.set('role', signal.role)
+        Bus.emit('role:changed', { role: signal.role })
+        Awareness.setLocalField('role', signal.role)
+        toast('Tu rol cambió a: ' + signal.role)
+      }
+    })
+  }
+
+  const setRole = (clientId, role) => {
+    if (State.get('role') !== 'host' || !_session) return
+    const signals = _session.get('roleSignals') || {}
+    signals[clientId.toString()] = { role, ts: Date.now() }
+    _session.set('roleSignals', { ...signals })
+    toast('Rol asignado: ' + role)
+  }
+
+  // Accesores para otros módulos
+  const getText    = () => _text
+  const getStrokes = () => _strokes
+  const getChat    = () => _chat
+  const getDoc     = () => _doc
+  const getUndo    = () => _undoManager
+
+  return { init, watchRoleSignals, setRole,
+           getText, getStrokes, getChat, getDoc, getUndo }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
    EDITOR MODULE
-════════════════════════════════════════════════ */
-function setupEditorSync() {
-  const ta = $('editor-textarea')
+   Gestiona textarea ↔ Y.Text y el toolbar de formato.
+═══════════════════════════════════════════════════════════════════ */
+const Editor = (() => {
+  let _lastValue  = ''
+  let _savedSel   = { start: 0, end: 0 }
 
-  // Y.Text → textarea (remote changes)
-  yText.observe(event => {
-    // Solo ignorar si el cambio vino de nuestra propia edición local
-    if (event.transaction.origin === 'local') return
-    const newVal = yText.toString()
+  const _ta = () => $('editor-textarea')
+
+  const _saveSelection = () => {
+    const ta = _ta()
+    _savedSel = { start: ta.selectionStart, end: ta.selectionEnd }
+  }
+
+  const _getSelection = () => {
+    const ta = _ta()
+    return document.activeElement === ta
+      ? { s: ta.selectionStart, e: ta.selectionEnd }
+      : { s: _savedSel.start,   e: _savedSel.end  }
+  }
+
+  // Aplica un nuevo valor al textarea y sincroniza con Yjs
+  const _applyValue = (newFull, newSelStart, newSelEnd) => {
+    const ta  = _ta()
+    ta.value  = newFull
+    ta.focus()
+    ta.setSelectionRange(newSelStart, newSelEnd)
+    const yText = Yjs.getText()
+    if (yText && Yjs.getDoc()) {
+      try {
+        applyDiff(yText, _lastValue, newFull, Yjs.getDoc())
+      } catch(e) {
+        console.warn('applyDiff falló:', e)
+      }
+    }
+    _lastValue = newFull
+    _updateMetrics()
+  }
+
+  const wrapSelection = (before, after) => {
+    const ta  = _ta()
+    const { s, e } = _getSelection()
+    const sel = ta.value.slice(s, e) || 'texto'
+    const full = ta.value.slice(0, s) + before + sel + after + ta.value.slice(e)
+    _applyValue(full, s + before.length, s + before.length + sel.length)
+  }
+
+  const insertAtCursor = (text) => {
+    const ta  = _ta()
+    const { s, e } = _getSelection()
+    const full = ta.value.slice(0, s) + text + ta.value.slice(e)
+    _applyValue(full, s + text.length, s + text.length)
+  }
+
+  const _broadcastCursor = () => {
+    const ta = _ta()
+    if (!State.get('peerId')) return
+    Awareness.setLocalField('cursor', { pos: ta.selectionStart, name: State.get('name') })
+  }
+
+  const _debouncedHash = debounce(async () => {
+    const content = Yjs.getText() ? Yjs.getText().toString() : ''
+    const h = await sha256(content)
+    Bus.emit('editor:hash', { hash: h })
+    return h
+  }, 2000)
+
+  const _debouncedSave = debounce(() => Bus.emit('editor:saved'), 3000)
+
+  const _updateMetrics = () => {
+    const text  = (_ta().value || '').replace(/[#*_`$\[\]]/g, '').trim()
+    const words = text ? text.split(/\s+/).length : 0
+    Bus.emit('editor:wordcount', { words })
+    _debouncedHash()
+    Bus.emit('editor:changed', { value: _ta().value })
+  }
+
+  const getComputedHash = async () => {
+    const content = Yjs.getText() ? Yjs.getText().toString() : ''
+    const h = await sha256(content)
+    Bus.emit('editor:hash', { hash: h })
+    return h
+  }
+
+  // Aplicar cambio remoto de Yjs al textarea, preservando cursor
+  const _syncFromYjs = () => {
+    const ta     = _ta()
+    const newVal = Yjs.getText().toString()
     if (ta.value === newVal) return
     const ss = ta.selectionStart, se = ta.selectionEnd
-    ta.value = newVal
-    lastEditorValue = newVal
-    ta.setSelectionRange(clamp(ss,0,newVal.length), clamp(se,0,newVal.length))
-    updatePreview()
-    updateWordCount()
-    debouncedHash()
-  })
-
-  // Guardar selección continuamente
-  ta.addEventListener('focus', saveSelection)
-
-  // textarea → Y.Text (local changes)
-  ta.addEventListener('input', () => {
-    saveSelection()
-    if (!yText) return
-    const newVal = ta.value
-    applyDiff(yText, lastEditorValue, newVal, ydoc)
-    lastEditorValue = newVal
-    updatePreview()
-    updateWordCount()
-    debouncedSave()
-    debouncedHash()
-    broadcastCursor()
-  })
-
-  ta.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey) {
-      if (e.key==='z' && !e.shiftKey) { e.preventDefault(); if (undoManager) undoManager.undo() }
-      if ((e.key==='y') || (e.key==='z' && e.shiftKey)) { e.preventDefault(); if (undoManager) undoManager.redo() }
-      if (e.key==='b') { e.preventDefault(); wrapSelection('**', '**') }
-      if (e.key==='i') { e.preventDefault(); wrapSelection('*', '*') }
-      if (e.key==='k') { e.preventDefault(); wrapSelection('$', '$') }
-      if (e.key==='s') { e.preventDefault(); toast('✓ Guardado localmente') }
-    }
-    if (e.key==='Tab') {
-      e.preventDefault()
-      const s = ta.selectionStart
-      const full = ta.value.slice(0,s) + '  ' + ta.value.slice(ta.selectionEnd)
-      applyToEditor(full, s+2, s+2)
-    }
-  })
-
-  ta.addEventListener('keyup', () => { saveSelection(); broadcastCursor() })
-  ta.addEventListener('click', () => { saveSelection(); broadcastCursor() })
-  ta.addEventListener('select', () => { saveSelection(); broadcastCursor() })
-  ta.addEventListener('keydown', saveSelection)
-}
-
-// Selección guardada justo antes de que el botón robe el foco
-let savedSel = { start: 0, end: 0 }
-
-function saveSelection() {
-  const ta = $('editor-textarea')
-  savedSel = { start: ta.selectionStart, end: ta.selectionEnd }
-}
-
-function applyToEditor(newFull, newSelStart, newSelEnd) {
-  const ta = $('editor-textarea')
-  const prev = ta.value
-  ta.value = newFull
-  ta.focus()
-  ta.setSelectionRange(newSelStart, newSelEnd)
-  // Sincronizar con Yjs si está listo; si no, el input handler lo recoge al próximo keystroke
-  if (yText && ydoc) {
-    try {
-      applyDiff(yText, lastEditorValue, newFull, ydoc)
-      lastEditorValue = newFull
-    } catch(e) {
-      // Si Yjs falla, al menos el textarea tiene el valor correcto
-      lastEditorValue = newFull
-      console.warn('applyDiff falló:', e)
-    }
-  } else {
-    lastEditorValue = newFull
+    ta.value   = newVal
+    _lastValue = newVal
+    ta.setSelectionRange(clamp(ss, 0, newVal.length), clamp(se, 0, newVal.length))
+    _updateMetrics()
   }
-  updatePreview()
-  updateWordCount()
-}
 
-function wrapSelection(before, after) {
-  const ta = $('editor-textarea')
-  // Usar savedSel si el textarea perdió foco, si no usar la selección actual
-  const s = document.activeElement === ta ? ta.selectionStart : savedSel.start
-  const e = document.activeElement === ta ? ta.selectionEnd   : savedSel.end
-  const selected = ta.value.slice(s, e) || 'texto'
-  const wrapped = before + selected + after
-  const full = ta.value.slice(0, s) + wrapped + ta.value.slice(e)
-  applyToEditor(full, s + before.length, s + before.length + selected.length)
-}
+  const setup = () => {
+    const ta    = _ta()
+    const yText = Yjs.getText()
 
-function insertAtCursor(text) {
-  const ta = $('editor-textarea')
-  const s = document.activeElement === ta ? ta.selectionStart : savedSel.start
-  const e = document.activeElement === ta ? ta.selectionEnd   : savedSel.end
-  const full = ta.value.slice(0, s) + text + ta.value.slice(e)
-  applyToEditor(full, s + text.length, s + text.length)
-}
-
-function broadcastCursor() {
-  if (!S.peerId || !awareness) return
-  const ta = $('editor-textarea')
-  awareness.setLocalStateField('cursor', { pos: ta.selectionStart, name: S.name })
-}
-
-const debouncedSave = debounce(() => {
-  $('status-save').textContent = '✓ Guardado'
-  setTimeout(() => { $('status-save').textContent = 'Guardado local' }, 2000)
-}, 3000)
-
-const debouncedHash = debounce(computeAndShowHash, 2000)
-
-async function computeAndShowHash() {
-  const content = yText ? yText.toString() : ''
-  const h = await sha256(content)
-  $('status-hash').textContent = 'SHA-256: ' + h.slice(0,16) + '...'
-  return h
-}
-
-function updateWordCount() {
-  const text = ($('editor-textarea').value || '').replace(/[#*_`$\[\]]/g,'').trim()
-  const words = text ? text.split(/\s+/).length : 0
-  $('word-count').textContent = words + ' palabras'
-}
-
-/* ═══════════════════════════════════════════════
-   PREVIEW MODULE
-════════════════════════════════════════════════ */
-marked.setOptions({ breaks: true, gfm: true })
-
-function renderMarkdownWithKaTeX(md) {
-  const mathBlocks = []
-  // Usamos un placeholder con caracteres que marked nunca escapa ni modifica
-  const mkId = i => `MATH${i}`
-
-  // Primero proteger bloques de código para no procesar $ dentro de ellos
-  const codeBlocks = []
-  let s = md
-    .replace(/(```[\s\S]*?```|`[^`]+`)/g, (m) => {
-      const ci = `CODE${codeBlocks.length}`
-      codeBlocks.push(m)
-      return ci
+    // Y.Text → textarea (cambios remotos)
+    yText.observe(event => {
+      if (event.transaction.origin === 'local') return
+      _syncFromYjs()
     })
 
-  // Extract display math $$...$$
-  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, latex) => {
-    const i = mathBlocks.length
-    mathBlocks.push({ latex, display: true })
-    return `\n\n${mkId(i)}\n\n`
-  })
+    // Sincronizar desde IDB al cargar
+    Bus.on('yjs:synced', () => _syncFromYjs())
 
-  // Extract inline math $...$  (no escapado, no dentro de código)
-  s = s.replace(/(?<!\\)\$([^$\n]+?)\$/g, (_, latex) => {
-    const i = mathBlocks.length
-    mathBlocks.push({ latex, display: false })
-    return mkId(i)
-  })
+    // textarea → Y.Text (cambios locales)
+    ta.addEventListener('input', () => {
+      _saveSelection()
+      if (!Yjs.getText()) return
+      const newVal = ta.value
+      applyDiff(Yjs.getText(), _lastValue, newVal, Yjs.getDoc())
+      _lastValue = newVal
+      _updateMetrics()
+      _debouncedSave()
+      _broadcastCursor()
+    })
 
-  // Restaurar bloques de código antes de parsear markdown
-  codeBlocks.forEach((code, ci) => {
-    s = s.split(`CODE${ci}`).join(code)
-  })
+    ta.addEventListener('focus',  _saveSelection)
+    ta.addEventListener('keyup',  () => { _saveSelection(); _broadcastCursor() })
+    ta.addEventListener('click',  () => { _saveSelection(); _broadcastCursor() })
+    ta.addEventListener('select', () => { _saveSelection(); _broadcastCursor() })
 
-  // Render markdown
-  let html = marked.parse(s)
+    ta.addEventListener('keydown', e => {
+      _saveSelection()
 
-  // Restaurar math — los placeholders sobreviven intactos porque son caracteres de control
-  mathBlocks.forEach(({ latex, display }, i) => {
-    const placeholder = mkId(i)
-    // marked puede haber envuelto el placeholder de display en <p>
-    try {
-      const rendered = katex.renderToString(latex.trim(), {
-        displayMode: display, throwOnError: false, strict: false
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); Yjs.getUndo()?.undo() }
+        if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); Yjs.getUndo()?.redo() }
+        if (e.key === 'b') { e.preventDefault(); wrapSelection('**', '**') }
+        if (e.key === 'i') { e.preventDefault(); wrapSelection('*', '*') }
+        if (e.key === 'k') { e.preventDefault(); wrapSelection('$', '$') }
+        if (e.key === 's') { e.preventDefault(); toast('✓ Guardado localmente') }
+      }
+
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        const s    = ta.selectionStart
+        const full = ta.value.slice(0, s) + '  ' + ta.value.slice(ta.selectionEnd)
+        _applyValue(full, s + 2, s + 2)
+      }
+    })
+
+    // Toolbar de formato
+    document.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (State.get('role') === 'observer') return
+        const ACTIONS = {
+          'bold':        () => wrapSelection('**', '**'),
+          'italic':      () => wrapSelection('*', '*'),
+          'code':        () => wrapSelection('`', '`'),
+          'h1':          () => insertAtCursor('\n# '),
+          'h2':          () => insertAtCursor('\n## '),
+          'h3':          () => insertAtCursor('\n### '),
+          'math-inline': () => wrapSelection('$', '$'),
+          'math-block':  () => insertAtCursor('\n\n$$\n\n$$\n\n'),
+          'ul':          () => insertAtCursor('\n- '),
+          'hr':          () => insertAtCursor('\n---\n'),
+          'table':       () => insertAtCursor('\n| Columna 1 | Columna 2 | Columna 3 |\n|:---|:---:|---:|\n| Dato | Dato | Dato |\n'),
+        }
+        ACTIONS[btn.dataset.action]?.()
       })
-      const replacement = display ? `</p><div class="katex-display">${rendered}</div><p>` : rendered
-      html = html.split(placeholder).join(replacement)
-    } catch(e) {
-      html = html.split(placeholder).join(`<span class="math-error">[LaTeX: ${latex}]</span>`)
-    }
-  })
-
-  // Limpiar <p></p> vacíos generados al insertar divs entre párrafos
-  html = html.replace(/<p>\s*<\/p>/g, '')
-
-  return html
-}
-
-function updatePreview() {
-  const md = $('editor-textarea').value
-  if (!md.trim()) {
-    $('preview-content').innerHTML = '<p class="preview-empty">La vista previa aparecerá mientras escribes...</p>'
-    return
-  }
-  $('preview-content').innerHTML = renderMarkdownWithKaTeX(md)
-}
-
-/* ═══════════════════════════════════════════════
-   WHITEBOARD MODULE
-════════════════════════════════════════════════ */
-let canvas, ctx, dpr = 1
-let awarenessStrokes = {}
-let boardInitialized = false
-
-function initBoard() {
-  if (boardInitialized) { if(canvas) resizeCanvas(); return }
-  boardInitialized = true
-  canvas = $('board-canvas')
-  ctx = canvas.getContext('2d')
-  resizeCanvas()
-  new ResizeObserver(resizeCanvas).observe($('board-wrap'))
-
-  // Mouse events
-  canvas.addEventListener('mousedown', onBoardStart)
-  canvas.addEventListener('mousemove', onBoardMove)
-  canvas.addEventListener('mouseup',   onBoardEnd)
-  canvas.addEventListener('mouseleave',onBoardEnd)
-  // Touch events
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); onBoardStart(e.touches[0]) }, {passive:false})
-  canvas.addEventListener('touchmove',  e => { e.preventDefault(); onBoardMove(e.touches[0]) },  {passive:false})
-  canvas.addEventListener('touchend',   e => { e.preventDefault(); onBoardEnd() },                 {passive:false})
-
-  // Text input
-  $('board-text-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') commitTextTool()
-    if (e.key === 'Escape') { $('board-text-input').style.display='none' }
-  })
-}
-
-function resizeCanvas() {
-  dpr = window.devicePixelRatio || 1
-  const wrap = $('board-wrap')
-  const w = wrap.offsetWidth, h = wrap.offsetHeight
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = w + 'px'
-  canvas.style.height = h + 'px'
-  ctx.scale(dpr, dpr)
-  redrawBoard()
-}
-
-function getBoardPos(e) {
-  const r = canvas.getBoundingClientRect()
-  return { x: (e.clientX - r.left), y: (e.clientY - r.top) }
-}
-
-function onBoardStart(e) {
-  if (S.role === 'observer') return
-  const {x, y} = getBoardPos(e)
-
-  if (S.boardTool === 'text') {
-    const inp = $('board-text-input')
-    inp.style.display = 'block'
-    inp.style.left = x + 'px'
-    inp.style.top = (y-18) + 'px'
-    inp.dataset.x = x; inp.dataset.y = y
-    inp.value = ''
-    inp.focus()
-    return
-  }
-
-  S.drawing = true
-  S.activeStroke = {
-    id: genId(), tool: S.boardTool,
-    color: S.boardTool === 'eraser' ? '#0d0e12' : S.boardColor,
-    width: S.boardTool === 'eraser' ? S.boardWidth * 5 : S.boardWidth,
-    peerId: S.peerId, peerName: S.name,
-    ts: Date.now(),
-    points: [[x, y]], x1:x, y1:y, x2:x, y2:y
-  }
-}
-
-function onBoardMove(e) {
-  if (!S.drawing || !S.activeStroke) return
-  const {x, y} = getBoardPos(e)
-  const s = S.activeStroke
-  s.x2 = x; s.y2 = y
-  if (s.tool === 'pen' || s.tool === 'eraser') s.points.push([x, y])
-
-  // Broadcast in-progress stroke via awareness
-  if (awareness) awareness.setLocalStateField('boardStroke', {...s})
-  scheduleRedraw()
-}
-
-function onBoardEnd() {
-  if (!S.drawing || !S.activeStroke) return
-  S.drawing = false
-  const s = S.activeStroke
-  S.activeStroke = null
-
-  // Skip tiny strokes
-  if ((s.tool==='pen'||s.tool==='eraser') && s.points.length < 2) return
-  if ((s.tool!=='pen'&&s.tool!=='eraser') && Math.abs(s.x2-s.x1)<4 && Math.abs(s.y2-s.y1)<4) return
-
-  yStrokes.push([s])
-  if (awareness) awareness.setLocalStateField('boardStroke', null)
-}
-
-function commitTextTool() {
-  const inp = $('board-text-input')
-  const text = inp.value.trim()
-  inp.style.display = 'none'
-  if (!text) return
-  const s = {
-    id: genId(), tool: 'text',
-    color: S.boardColor, fontSize: 16, text,
-    x1: parseFloat(inp.dataset.x), y1: parseFloat(inp.dataset.y),
-    peerId: S.peerId, peerName: S.name, ts: Date.now()
-  }
-  yStrokes.push([s])
-}
-
-function setupBoardSync() {
-  yStrokes.observe(() => {
-    // yStrokes stores items as [s] arrays; unwrap to plain objects
-    S.strokes = yStrokes.toArray().map(item => Array.isArray(item) ? item[0] : item)
-    scheduleRedraw()
-  })
-}
-
-let rafId = null
-function scheduleRedraw() {
-  if (!rafId) rafId = requestAnimationFrame(() => { rafId = null; redrawBoard() })
-}
-
-function renderBoardAwareness() {
-  awarenessStrokes = {}
-  awarenessStates.forEach((state, clientId) => {
-    if (clientId.toString() !== S.peerId && state && state.boardStroke) {
-      awarenessStrokes[clientId] = state.boardStroke
-    }
-  })
-  scheduleRedraw()
-}
-
-function redrawBoard() {
-  if (!ctx) return
-  const w = canvas.width / dpr, h = canvas.height / dpr
-
-  // Background
-  ctx.fillStyle = '#0d0e12'
-  ctx.fillRect(0, 0, w, h)
-
-  // Dot grid
-  ctx.fillStyle = '#1a1c24'
-  for (let x=20; x<w; x+=20)
-    for (let y=20; y<h; y+=20) {
-      ctx.beginPath(); ctx.arc(x,y,0.7,0,Math.PI*2); ctx.fill()
-    }
-
-  // Committed strokes
-  S.strokes.forEach(s => drawStroke(s))
-
-  // Awareness strokes (other peers drawing)
-  Object.values(awarenessStrokes).forEach(s => {
-    if (s) { ctx.globalAlpha = 0.65; drawStroke(s); ctx.globalAlpha = 1 }
-  })
-
-  // Local active stroke
-  if (S.activeStroke) drawStroke(S.activeStroke)
-}
-
-function drawStroke(s) {
-  ctx.save()
-  ctx.strokeStyle = s.color || '#4ade80'
-  ctx.fillStyle = s.color || '#4ade80'
-  ctx.lineWidth = s.width || 2
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-
-  switch(s.tool) {
-    case 'pen': case 'eraser': drawPen(s.points); break
-    case 'line': drawLine(s.x1,s.y1,s.x2,s.y2); break
-    case 'rect': drawRect(s.x1,s.y1,s.x2,s.y2); break
-    case 'circle': drawCircle(s.x1,s.y1,s.x2,s.y2); break
-    case 'arrow': drawArrow(s.x1,s.y1,s.x2,s.y2,s.width); break
-    case 'text':
-      ctx.font = `${s.fontSize||16}px 'Familjen Grotesk',sans-serif`
-      ctx.fillText(s.text, s.x1, s.y1); break
-  }
-  ctx.restore()
-}
-
-function drawPen(pts) {
-  if (!pts || pts.length < 2) return
-  ctx.beginPath()
-  ctx.moveTo(pts[0][0], pts[0][1])
-  for (let i=1; i<pts.length-1; i++) {
-    const mx = (pts[i][0]+pts[i+1][0])/2, my = (pts[i][1]+pts[i+1][1])/2
-    ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my)
-  }
-  ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1])
-  ctx.stroke()
-}
-function drawLine(x1,y1,x2,y2) {
-  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
-}
-function drawRect(x1,y1,x2,y2) {
-  ctx.strokeRect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1))
-}
-function drawCircle(x1,y1,x2,y2) {
-  const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2
-  ctx.beginPath(); ctx.ellipse(cx,cy,Math.max(rx,1),Math.max(ry,1),0,0,Math.PI*2); ctx.stroke()
-}
-function drawArrow(x1,y1,x2,y2,w=2) {
-  drawLine(x1,y1,x2,y2)
-  const angle = Math.atan2(y2-y1, x2-x1), size = Math.max(10, (w||2)*4)
-  ctx.beginPath()
-  ctx.moveTo(x2, y2)
-  ctx.lineTo(x2-size*Math.cos(angle-Math.PI/6), y2-size*Math.sin(angle-Math.PI/6))
-  ctx.lineTo(x2-size*Math.cos(angle+Math.PI/6), y2-size*Math.sin(angle+Math.PI/6))
-  ctx.closePath(); ctx.fill()
-}
-
-/* ═══════════════════════════════════════════════
-   CHAT MODULE
-════════════════════════════════════════════════ */
-let chatCount = 0
-
-function setupChatSync() {
-  yChat.observe(event => {
-    event.changes.delta.forEach(op => {
-      // op.insert items may be array-wrapped ([msg]) due to yChat.push([msg])
-      if (op.insert) op.insert.forEach(item => renderChatMsg(Array.isArray(item) ? item[0] : item))
     })
-  })
-}
-
-function sendChat() {
-  const inp = $('chat-input')
-  const text = inp.value.trim()
-  if (!text) return
-  const msg = {
-    id: genId(), peerId: S.peerId, name: S.name,
-    color: peerColor(S.peerId), text, ts: Date.now()
-  }
-  yChat.push([msg])
-  inp.value = ''
-
-  // Awareness: stop typing
-  if (awareness) awareness.setLocalStateField('typing', false)
-}
-
-function renderChatMsg(msg) {
-  const container = $('chat-messages')
-  const isOwn = msg.peerId === S.peerId
-  const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40
-
-  if (msg.type === 'system') {
-    const el = document.createElement('div')
-    el.className = 'chat-sys'
-    el.textContent = msg.text
-    container.appendChild(el)
-  } else {
-    const div = document.createElement('div')
-    div.className = 'chat-msg' + (isOwn ? ' own' : '')
-    const time = new Date(msg.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
-    div.innerHTML = `
-      <div class="msg-meta">
-        <span class="msg-author" style="color:${msg.color||'var(--accent)'}">${escHtml(msg.name||'?')}</span>
-        <span>${time}</span>
-      </div>
-      <div class="msg-bubble">${escHtml(msg.text)}</div>
-    `
-    container.appendChild(div)
   }
 
-  if (atBottom) container.scrollTop = container.scrollHeight
+  return { setup, wrapSelection, insertAtCursor, getComputedHash }
+})()
 
-  // Unread badge when chat tab not active
-  if (S.rightPanel !== 'chat-view' && msg.peerId !== S.peerId) {
-    S.unread++
-    const badge = $('chat-badge')
-    badge.textContent = S.unread > 9 ? '9+' : S.unread
-    badge.classList.remove('hidden')
+/* ═══════════════════════════════════════════════════════════════════
+   PREVIEW MODULE
+   Renderiza Markdown + KaTeX. Sin efectos secundarios de red.
+═══════════════════════════════════════════════════════════════════ */
+const Preview = (() => {
+  marked.setOptions({ breaks: true, gfm: true })
+
+  // Separador de placeholders único para esta sesión
+  const MATH_PFX = '\x02MATH'
+  const MATH_SFX = '\x03'
+  const CODE_PFX = '\x02CODE'
+  const CODE_SFX = '\x03'
+  const mkMath = i => `${MATH_PFX}${i}${MATH_SFX}`
+  const mkCode = i => `${CODE_PFX}${i}${CODE_SFX}`
+
+  const render = (md) => {
+    if (!md || !md.trim()) return ''
+
+    const mathBlocks = []
+    const codeBlocks = []
+
+    // 1) Proteger bloques de código (no procesar $ dentro)
+    let s = md.replace(/(```[\s\S]*?```|`[^`]+`)/g, (m) => {
+      const i = codeBlocks.length
+      codeBlocks.push(m)
+      return mkCode(i)
+    })
+
+    // 2) Extraer matemáticas en bloque $$...$$
+    s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, latex) => {
+      const i = mathBlocks.length
+      mathBlocks.push({ latex, display: true })
+      return `\n\n${mkMath(i)}\n\n`
+    })
+
+    // 3) Extraer matemáticas inline $...$
+    s = s.replace(/(?<!\\)\$([^$\n]+?)\$/g, (_, latex) => {
+      const i = mathBlocks.length
+      mathBlocks.push({ latex, display: false })
+      return mkMath(i)
+    })
+
+    // 4) Restaurar bloques de código
+    codeBlocks.forEach((code, i) => { s = s.split(mkCode(i)).join(code) })
+
+    // 5) Renderizar Markdown
+    let html = marked.parse(s)
+
+    // 6) Restaurar y renderizar matemáticas
+    mathBlocks.forEach(({ latex, display }, i) => {
+      const ph = mkMath(i)
+      try {
+        const rendered    = katex.renderToString(latex.trim(), { displayMode: display, throwOnError: false, strict: false })
+        const replacement = display ? `</p><div class="katex-display">${rendered}</div><p>` : rendered
+        html = html.split(ph).join(replacement)
+      } catch {
+        html = html.split(ph).join(`<span class="math-error">[LaTeX: ${escHtml(latex)}]</span>`)
+      }
+    })
+
+    // 7) Limpiar <p></p> vacíos por inserción de divs
+    return html.replace(/<p>\s*<\/p>/g, '')
   }
-}
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-}
+  const setup = () => {
+    Bus.on('editor:changed', ({ value }) => {
+      Bus.emit('preview:rendered', { html: render(value) })
+    })
+  }
 
-function updateTypingIndicator() {
-  const typing = []
-  awarenessStates.forEach((state, id) => {
-    if (id.toString() !== S.peerId && state && state.typing && state.name)
-      typing.push(state.name.split(' ')[0])
-  })
-  const el = $('typing-indicator')
-  el.textContent = typing.length ? `${typing.slice(0,2).join(', ')} está escribiendo...` : ''
-}
+  return { setup, render }
+})()
 
-function updatePeersUI() {
-  const list = $('peers-list')
-  list.innerHTML = ''
-  let count = 0
+/* ═══════════════════════════════════════════════════════════════════
+   BOARD MODULE
+   Pizarra colaborativa con canvas 2D y herramientas de dibujo.
+═══════════════════════════════════════════════════════════════════ */
+const Board = (() => {
+  let _canvas, _ctx, _dpr = 1
+  let _initialized = false
+  let _peersStrokes = {}  // strokes en vuelo de otros peers (awareness)
+  let _rafId = null
 
-  // Incluir propio estado
-  const allStates = new Map(awarenessStates)
-  const myState = awarenessStates.get(S.peerId)
-  if (myState) allStates.set(S.peerId, myState)
+  // ── Ciclo de redibujado con requestAnimationFrame ──────────────
+  const _scheduleRedraw = () => {
+    if (!_rafId) _rafId = requestAnimationFrame(() => { _rafId = null; _redraw() })
+  }
 
-  allStates.forEach((state, clientId) => {
-    if (!state || !state.name) return
-    count++
-    const cid = clientId.toString()
-    const isMe = cid === S.peerId
-    const color = state.color || peerColor(cid)
-    const role = state.role || 'editor'
+  const _redraw = () => {
+    if (!_ctx) return
+    const w = _canvas.width / _dpr, h = _canvas.height / _dpr
+    _ctx.fillStyle = '#0d0e12'
+    _ctx.fillRect(0, 0, w, h)
 
-    const div = document.createElement('div')
-    div.className = 'peer-item'
-    div.innerHTML = `
-      <div class="peer-dot" style="background:${color}"></div>
-      <div class="peer-info">
-        <div class="peer-name">${escHtml(state.name)}${isMe ? ' <span style="color:var(--txt3);font-size:11px;">(tú)</span>' : ''}</div>
-        <div class="peer-status">${role} · ${isMe ? 'local' : 'remoto'}</div>
-      </div>
-      ${S.role === 'host' && !isMe ? `
-        <div class="peer-actions">
-          <button class="peer-action-btn" onclick="setRole(${clientId}, 'editor')">Editor</button>
-          <button class="peer-action-btn" onclick="setRole(${clientId}, 'observer')">Obs.</button>
-        </div>` : ''}
-    `
-    list.appendChild(div)
-  })
+    // Cuadrícula de puntos
+    _ctx.fillStyle = '#1a1c24'
+    for (let x = 20; x < w; x += 20)
+      for (let y = 20; y < h; y += 20) {
+        _ctx.beginPath(); _ctx.arc(x, y, 0.7, 0, Math.PI * 2); _ctx.fill()
+      }
 
-  // +1 para incluirse a uno mismo si no está ya en allStates
-  const displayCount = allStates.has(S.peerId) ? count : count + 1
-  $('status-peers').textContent = displayCount + (displayCount === 1 ? ' peer' : ' peers')
-  updateTypingIndicator()
-}
+    State.get('strokes').forEach(s => _drawStroke(s))
 
-function updatePeersBar() {
-  const bar = $('peers-bar')
-  bar.innerHTML = ''
-  const allStates = new Map(awarenessStates)
-  let i = 0
-  allStates.forEach((state, clientId) => {
-    if (!state.name || i >= 6) return
-    i++
-    const color = state.color || peerColor(clientId.toString())
-    const el = document.createElement('div')
-    el.className = 'peer-avatar'
-    el.style.background = color
-    el.style.color = '#0d0e12'
-    el.textContent = initials(state.name)
-    el.title = state.name + (clientId.toString() === S.peerId ? ' (tú)' : '')
-    bar.appendChild(el)
-  })
-}
+    Object.values(_peersStrokes).forEach(s => {
+      if (s) { _ctx.globalAlpha = 0.65; _drawStroke(s); _ctx.globalAlpha = 1 }
+    })
 
-function watchRoleSignals() {
-  if (!ySession) return
-  ySession.observe(event => {
-    if (!event.keysChanged.has('roleSignals')) return
-    const signals = ySession.get('roleSignals') || {}
-    const myId = ydoc.clientID.toString()
-    const mySignal = signals[myId]
-    if (mySignal && mySignal.ts > (S._lastRoleTs || 0)) {
-      S._lastRoleTs = mySignal.ts
-      S.role = mySignal.role
-      updateRoleUI()
-      if (awareness) awareness.setLocalStateField('role', S.role)
-      toast('Tu rol cambió a: ' + S.role)
+    const active = State.get('activeStroke')
+    if (active) _drawStroke(active)
+  }
+
+  // ── Primitivas de dibujo ───────────────────────────────────────
+  const _drawPen = (pts) => {
+    if (!pts || pts.length < 2) return
+    _ctx.beginPath()
+    _ctx.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i][0] + pts[i+1][0]) / 2, my = (pts[i][1] + pts[i+1][1]) / 2
+      _ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my)
     }
-  })
-}
+    _ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1])
+    _ctx.stroke()
+  }
 
-function updateRoleUI() {
-  const chip = $('role-chip')
-  chip.className = 'role-chip role-' + S.role
-  chip.textContent = S.role
-  const ta = $('editor-textarea')
-  ta.readOnly = (S.role === 'observer')
-  if (S.role === 'observer') ta.style.opacity = '0.6'
-  else ta.style.opacity = '1'
-}
+  const _drawStroke = (s) => {
+    if (!s || !s.tool) return
+    _ctx.save()
+    _ctx.strokeStyle = s.color || '#4ade80'
+    _ctx.fillStyle   = s.color || '#4ade80'
+    _ctx.lineWidth   = s.width || 2
+    _ctx.lineCap     = 'round'
+    _ctx.lineJoin    = 'round'
 
-document.addEventListener('DOMContentLoaded', () => {
+    switch (s.tool) {
+      case 'pen': case 'eraser':
+        _drawPen(s.points); break
+      case 'line':
+        _ctx.beginPath(); _ctx.moveTo(s.x1, s.y1); _ctx.lineTo(s.x2, s.y2); _ctx.stroke(); break
+      case 'rect':
+        _ctx.strokeRect(Math.min(s.x1, s.x2), Math.min(s.y1, s.y2), Math.abs(s.x2 - s.x1), Math.abs(s.y2 - s.y1)); break
+      case 'circle': {
+        const cx = (s.x1+s.x2)/2, cy = (s.y1+s.y2)/2, rx = Math.abs(s.x2-s.x1)/2, ry = Math.abs(s.y2-s.y1)/2
+        _ctx.beginPath(); _ctx.ellipse(cx, cy, Math.max(rx, 1), Math.max(ry, 1), 0, 0, Math.PI*2); _ctx.stroke(); break
+      }
+      case 'arrow': {
+        _ctx.beginPath(); _ctx.moveTo(s.x1, s.y1); _ctx.lineTo(s.x2, s.y2); _ctx.stroke()
+        const angle = Math.atan2(s.y2 - s.y1, s.x2 - s.x1), size = Math.max(10, (s.width || 2) * 4)
+        _ctx.beginPath()
+        _ctx.moveTo(s.x2, s.y2)
+        _ctx.lineTo(s.x2 - size * Math.cos(angle - Math.PI/6), s.y2 - size * Math.sin(angle - Math.PI/6))
+        _ctx.lineTo(s.x2 - size * Math.cos(angle + Math.PI/6), s.y2 - size * Math.sin(angle + Math.PI/6))
+        _ctx.closePath(); _ctx.fill(); break
+      }
+      case 'text':
+        _ctx.font = `${s.fontSize || 16}px 'Familjen Grotesk',sans-serif`
+        _ctx.fillText(s.text, s.x1, s.y1); break
+    }
+    _ctx.restore()
+  }
 
-// Typing awareness
-let typingTimer = null
-$('chat-input').addEventListener('input', () => {
-  if (!S.peerId || !awareness) return
-  awareness.setLocalStateField('typing', true)
-  clearTimeout(typingTimer)
-  typingTimer = setTimeout(() => {
-    if (S.peerId && awareness) awareness.setLocalStateField('typing', false)
-  }, 2000)
-})
+  // ── Canvas resize ──────────────────────────────────────────────
+  const _resize = () => {
+    if (!_canvas) return
+    _dpr = window.devicePixelRatio || 1
+    const wrap = $('board-wrap')
+    const w = wrap.offsetWidth, h = wrap.offsetHeight
+    _canvas.width  = w * _dpr
+    _canvas.height = h * _dpr
+    _canvas.style.width  = w + 'px'
+    _canvas.style.height = h + 'px'
+    _ctx.scale(_dpr, _dpr)
+    _redraw()
+  }
 
+  const _getPos = (e) => {
+    const r = _canvas.getBoundingClientRect()
+    return { x: e.clientX - r.left, y: e.clientY - r.top }
+  }
 
-/* ═══════════════════════════════════════════════
-   PEERS & ROLES MODULE
-════════════════════════════════════════════════ */
+  // ── Texto en pizarra ───────────────────────────────────────────
+  const _commitText = () => {
+    const inp  = $('board-text-input')
+    const text = inp.value.trim()
+    inp.style.display = 'none'
+    if (!text) return
+    Yjs.getStrokes().push([{
+      id: genId(), tool: 'text', color: State.get('boardColor'),
+      fontSize: 16, text,
+      x1: parseFloat(inp.dataset.x), y1: parseFloat(inp.dataset.y),
+      peerId: State.get('peerId'), peerName: State.get('name'), ts: Date.now(),
+    }])
+  }
 
-window.setRole = function(clientId, role) {
-  if (S.role !== 'host' || !ySession) return
-  const signals = ySession.get('roleSignals') || {}
-  signals[clientId.toString()] = { role, ts: Date.now() }
-  ySession.set('roleSignals', {...signals})
-  toast('Rol asignado: ' + role)
-}
+  // ── Eventos de canvas ──────────────────────────────────────────
+  const _onStart = (e) => {
+    if (State.get('role') === 'observer') return
+    const { x, y } = _getPos(e)
 
+    if (State.get('boardTool') === 'text') {
+      const inp = $('board-text-input')
+      inp.style.display = 'block'
+      inp.style.left = x + 'px'
+      inp.style.top  = (y - 18) + 'px'
+      inp.dataset.x  = x
+      inp.dataset.y  = y
+      inp.value      = ''
+      inp.focus()
+      return
+    }
 
-// Watch for role signals
+    State.set('drawing', true)
+    State.set('activeStroke', {
+      id: genId(), tool: State.get('boardTool'),
+      color: State.get('boardTool') === 'eraser' ? '#0d0e12' : State.get('boardColor'),
+      width: State.get('boardTool') === 'eraser' ? State.get('boardWidth') * 5 : State.get('boardWidth'),
+      peerId: State.get('peerId'), peerName: State.get('name'),
+      ts: Date.now(), points: [[x, y]], x1: x, y1: y, x2: x, y2: y,
+    })
+  }
 
+  const _onMove = (e) => {
+    if (!State.get('drawing') || !State.get('activeStroke')) return
+    const { x, y } = _getPos(e)
+    const s = State.get('activeStroke')
+    s.x2 = x; s.y2 = y
+    if (s.tool === 'pen' || s.tool === 'eraser') s.points.push([x, y])
+    Awareness.setLocalField('boardStroke', { ...s })
+    _scheduleRedraw()
+  }
 
-/* ═══════════════════════════════════════════════
+  const _onEnd = () => {
+    if (!State.get('drawing') || !State.get('activeStroke')) return
+    State.set('drawing', false)
+    const s = State.get('activeStroke')
+    State.set('activeStroke', null)
+    if ((s.tool === 'pen' || s.tool === 'eraser') && s.points.length < 2) return
+    if (s.tool !== 'pen' && s.tool !== 'eraser' && Math.abs(s.x2 - s.x1) < 4 && Math.abs(s.y2 - s.y1) < 4) return
+    Yjs.getStrokes().push([s])
+    Awareness.setLocalField('boardStroke', null)
+  }
+
+  const init = () => {
+    if (_initialized) { _resize(); return }
+    _initialized = true
+    _canvas = $('board-canvas')
+    _ctx    = _canvas.getContext('2d')
+    _resize()
+    new ResizeObserver(_resize).observe($('board-wrap'))
+
+    _canvas.addEventListener('mousedown', _onStart)
+    _canvas.addEventListener('mousemove', _onMove)
+    _canvas.addEventListener('mouseup',   _onEnd)
+    _canvas.addEventListener('mouseleave', _onEnd)
+    _canvas.addEventListener('touchstart', e => { e.preventDefault(); _onStart(e.touches[0]) }, { passive: false })
+    _canvas.addEventListener('touchmove',  e => { e.preventDefault(); _onMove(e.touches[0])  }, { passive: false })
+    _canvas.addEventListener('touchend',   e => { e.preventDefault(); _onEnd()               }, { passive: false })
+
+    $('board-text-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter')  _commitText()
+      if (e.key === 'Escape') $('board-text-input').style.display = 'none'
+    })
+
+    // Sincronizar strokes desde Yjs
+    Yjs.getStrokes().observe(() => {
+      // Los items se guardan como [stroke] (array wrapper de Yjs); desenvolver
+      State.set('strokes', Yjs.getStrokes().toArray().map(item => Array.isArray(item) ? item[0] : item))
+      _scheduleRedraw()
+    })
+
+    // Strokes en vuelo de otros peers (awareness)
+    Bus.on('awareness:changed', ({ states }) => {
+      _peersStrokes = {}
+      const myId = State.get('peerId')
+      states.forEach((state, clientId) => {
+        if (clientId.toString() !== myId && state?.boardStroke) {
+          _peersStrokes[clientId] = state.boardStroke
+        }
+      })
+      _scheduleRedraw()
+    })
+  }
+
+  const resize = _resize
+
+  return { init, resize }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHAT MODULE
+   Mensajería en tiempo real sobre Y.Array.
+═══════════════════════════════════════════════════════════════════ */
+const Chat = (() => {
+  let _typingTimer = null
+
+  const send = () => {
+    const inp  = $('chat-input')
+    const text = inp.value.trim()
+    if (!text) return
+    Yjs.getChat().push([{
+      id: genId(), peerId: State.get('peerId'),
+      name: State.get('name'), color: Utils.peerColor(State.get('peerId')),
+      text, ts: Date.now(),
+    }])
+    inp.value = ''
+    Awareness.setLocalField('typing', false)
+  }
+
+  const setup = () => {
+    // Sincronizar mensajes entrantes desde Yjs
+    Yjs.getChat().observe(event => {
+      event.changes.delta.forEach(op => {
+        if (!op.insert) return
+        // Los items se guardan como [msg] (array wrapper de Yjs); desenvolver
+        op.insert.forEach(item => {
+          const msg = Array.isArray(item) ? item[0] : item
+          Bus.emit('chat:message', { msg })
+        })
+      })
+    })
+
+    // Indicador de escritura
+    $('chat-input').addEventListener('input', () => {
+      if (!State.get('peerId')) return
+      Awareness.setLocalField('typing', true)
+      clearTimeout(_typingTimer)
+      _typingTimer = setTimeout(() => {
+        if (State.get('peerId')) Awareness.setLocalField('typing', false)
+      }, 2000)
+    })
+
+    $('btn-send').addEventListener('click', send)
+    $('chat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+    })
+  }
+
+  return { setup, send }
+})()
+
+/* ═══════════════════════════════════════════════════════════════════
    EXPORT MODULE
-════════════════════════════════════════════════ */
-async function openExportModal() {
-  const h = await computeAndShowHash()
-  $('doc-hash').textContent = h
-  $('export-modal').classList.add('active')
-}
+   Exporta el documento en varios formatos.
+═══════════════════════════════════════════════════════════════════ */
+const Export = (() => {
+  const open = async () => {
+    const h = await Editor.getComputedHash()
+    UI.setDocHash(h)
+    $('export-modal').classList.add('active')
+  }
 
-$('close-export').addEventListener('click', () => {
-  $('export-modal').classList.remove('active')
-})
-$('export-modal').addEventListener('click', e => {
-  if (e.target === $('export-modal')) $('export-modal').classList.remove('active')
-})
+  const close = () => $('export-modal').classList.remove('active')
 
-$('exp-md').addEventListener('click', () => {
-  const content = yText ? yText.toString() : ''
-  const roomId = S.roomId || 'doc'
-  download(`labcolab-${roomId}-${Date.now()}.md`, content, 'text/markdown')
-  toast('Markdown descargado')
-})
+  const setup = () => {
+    $('btn-export-open').addEventListener('click', open)
+    $('close-export').addEventListener('click', close)
+    $('export-modal').addEventListener('click', e => { if (e.target === $('export-modal')) close() })
 
-$('exp-html').addEventListener('click', async () => {
-  const content = $('preview-content').innerHTML
-  const h = await computeAndShowHash()
-  const html = `<!DOCTYPE html>
+    $('exp-md').addEventListener('click', () => {
+      const content = Yjs.getText()?.toString() ?? ''
+      download(`labcolab-${State.get('roomId') || 'doc'}-${Date.now()}.md`, content, 'text/markdown')
+      toast('Markdown descargado')
+    })
+
+    $('exp-html').addEventListener('click', async () => {
+      const content = $('preview-content').innerHTML
+      const h       = await Editor.getComputedHash()
+      const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8">
 <title>LabColab Export</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -1483,250 +1689,217 @@ pre{background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto;}
 footer{margin-top:40px;padding-top:16px;border-top:1px solid #ccc;font-size:11px;color:#888;}
 </style></head>
 <body>${content}
-<footer>Sala: ${S.roomId} · Exportado: ${new Date().toISOString()} · SHA-256: ${h}</footer>
+<footer>Sala: ${State.get('roomId')} · Exportado: ${new Date().toISOString()} · SHA-256: ${h}</footer>
 </body></html>`
-  download(`labcolab-${S.roomId || 'doc'}.html`, html, 'text/html')
-  toast('HTML descargado')
-})
+      download(`labcolab-${State.get('roomId') || 'doc'}.html`, html, 'text/html')
+      toast('HTML descargado')
+    })
 
-$('exp-print').addEventListener('click', () => {
-  window.print()
-})
+    $('exp-print').addEventListener('click', () => window.print())
+  }
 
+  return { setup }
+})()
 
-/* ═══════════════════════════════════════════════
-   UI EVENT HANDLERS
-════════════════════════════════════════════════ */
-// Modal tabs
-$('tab-btn-create').addEventListener('click', () => {
-  $('tab-btn-create').classList.add('active')
-  $('tab-btn-join').classList.remove('active')
-  $('tab-create').classList.add('active')
-  $('tab-join').classList.remove('active')
-})
-$('tab-btn-join').addEventListener('click', () => {
-  $('tab-btn-join').classList.add('active')
-  $('tab-btn-create').classList.remove('active')
-  $('tab-join').classList.add('active')
-  $('tab-create').classList.remove('active')
-})
+/* ═══════════════════════════════════════════════════════════════════
+   SESSION MODULE
+   Orquesta el inicio de sesión y coordina todos los módulos.
+═══════════════════════════════════════════════════════════════════ */
+const Session = (() => {
+  const start = async (roomId, password, isHost) => {
+    State.patch({ name: State.get('name'), role: isHost ? 'host' : 'editor', roomId })
+    UI.showApp(roomId)
 
-// Create room
-$('btn-create').addEventListener('click', () => {
-  const name = $('create-name').value.trim() || 'Investigador'
-  const pass = $('create-pass').value
-  const roomId = genRoom()
-  S.name = name
-  S.role = 'host'
-  S.roomId = roomId
-  startSession(roomId, pass, true)
-})
+    const ok = await Yjs.init(roomId, password, isHost)
+    if (!ok) return
 
-// Join room
-$('btn-join').addEventListener('click', () => {
-  const name = $('join-name').value.trim() || 'Investigador'
-  let roomId = $('join-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')
-  const pass = $('join-pass').value
-  if (!roomId) { toast('Ingresa un código de sala'); return }
-  S.name = name
-  S.role = 'editor'
-  S.roomId = roomId
-  startSession(roomId, pass, false)
-})
+    // Inicializar módulos que dependen de Yjs
+    Editor.setup()
+    Preview.setup()
+    Chat.setup()
+    Board.init()
+    Yjs.watchRoleSignals()
 
-// Enter key in modals
-['create-name','create-pass'].forEach(id => {
-  $(id).addEventListener('keydown', e => { if(e.key==='Enter') $('btn-create').click() })
-})
-['join-name','join-room','join-pass'].forEach(id => {
-  $(id).addEventListener('keydown', e => { if(e.key==='Enter') $('btn-join').click() })
-})
+    // Anunciar rol inicial en UI
+    Bus.emit('role:changed', { role: State.get('role') })
 
-// Copy room code
-$('btn-copy-room').addEventListener('click', () => {
-  const url = location.origin + location.pathname + '?room=' + S.roomId
-  navigator.clipboard.writeText(url).then(() => toast('Enlace copiado al portapapeles')).catch(() => {
-    navigator.clipboard.writeText(S.roomId).then(() => toast('Código copiado: ' + S.roomId))
-  })
-})
+    // Actualizar peers tras inicialización de awareness
+    setTimeout(() => {
+      const states = Awareness.getStates()
+      Bus.emit('awareness:changed', { states })
+    }, 300)
 
-// Export open
-$('btn-export-open').addEventListener('click', openExportModal)
+    // Mensaje de sistema en chat
+    setTimeout(() => {
+      Bus.emit('chat:message', {
+        msg: {
+          type: 'system',
+          text: `Sala ${roomId} — ${isHost ? 'creada' : 'unido'} como ${State.get('name')}`,
+          ts: Date.now(),
+        }
+      })
+      toast(isHost ? `Sala ${roomId} creada ✓` : `Unido a sala ${roomId} ✓`)
+    }, 500)
+  }
 
-// Panel tabs
-document.querySelectorAll('[data-panel]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn.dataset.panel
-    const group = btn.closest('.panel-tabs')
-    group.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'))
-    btn.classList.add('active')
+  return { start }
+})()
 
-    // Determine which side
-    const isLeft = group.closest('#panel-left') !== null
-    if (isLeft) {
-      S.leftPanel = target
-      document.querySelectorAll('#panel-left .view-content').forEach(v => v.classList.add('hidden'))
-      $(target).classList.remove('hidden')
-      // Toggle toolbars
-      $('editor-toolbar').classList.toggle('hidden', target !== 'editor-view')
-      $('board-toolbar').classList.toggle('hidden', target !== 'board-view')
-      if (target === 'board-view') {
-        initBoard()
-        canvas.style.cursor = S.boardTool === 'text' ? 'text' : 'crosshair'
-      }
+/* ═══════════════════════════════════════════════════════════════════
+   APP MODULE
+   Event handlers de la UI raíz: modales, panel tabs, resize, etc.
+   Punto de entrada único tras DOMContentLoaded.
+═══════════════════════════════════════════════════════════════════ */
+const App = (() => {
+  // Expuesto en window para botones inline de peers (setRole)
+  window.App = { setRole: Yjs.setRole }
+
+  const _init = () => {
+    // ── Modal tabs ──────────────────────────────────────────────
+    $('tab-btn-create').addEventListener('click', () => {
+      $('tab-btn-create').classList.add('active')
+      $('tab-btn-join').classList.remove('active')
+      $('tab-create').classList.add('active')
+      $('tab-join').classList.remove('active')
+    })
+    $('tab-btn-join').addEventListener('click', () => {
+      $('tab-btn-join').classList.add('active')
+      $('tab-btn-create').classList.remove('active')
+      $('tab-join').classList.add('active')
+      $('tab-create').classList.remove('active')
+    })
+
+    // ── Crear sala ──────────────────────────────────────────────
+    $('btn-create').addEventListener('click', () => {
+      const name   = $('create-name').value.trim() || 'Investigador'
+      const pass   = $('create-pass').value
+      const roomId = genRoom()
+      State.patch({ name })
+      Session.start(roomId, pass, true)
+    })
+
+    // ── Unirse a sala ───────────────────────────────────────────
+    $('btn-join').addEventListener('click', () => {
+      const name   = $('join-name').value.trim() || 'Investigador'
+      const roomId = $('join-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      const pass   = $('join-pass').value
+      if (!roomId) { toast('Ingresa un código de sala'); return }
+      State.patch({ name })
+      Session.start(roomId, pass, false)
+    })
+
+    // Enter en campos del modal
+    ;['create-name', 'create-pass'].forEach(id =>
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create').click() })
+    )
+    ;['join-name', 'join-room', 'join-pass'].forEach(id =>
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-join').click() })
+    )
+
+    // ── Copiar enlace de sala ───────────────────────────────────
+    $('btn-copy-room').addEventListener('click', () => {
+      const url = `${location.origin}${location.pathname}?room=${State.get('roomId')}`
+      navigator.clipboard.writeText(url)
+        .then(() => toast('Enlace copiado al portapapeles'))
+        .catch(() => navigator.clipboard.writeText(State.get('roomId'))
+          .then(() => toast('Código copiado: ' + State.get('roomId'))))
+    })
+
+    // ── Export ──────────────────────────────────────────────────
+    Export.setup()
+
+    // ── Panel tabs ──────────────────────────────────────────────
+    document.querySelectorAll('[data-panel]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.panel
+        const group  = btn.closest('.panel-tabs')
+        const isLeft = group.closest('#panel-left') !== null
+        UI.switchPanel(target, isLeft ? 'left' : 'right')
+        if (isLeft && target === 'board-view') {
+          Board.init()
+          // El cursor del canvas se actualiza tras init
+          const canvas = $('board-canvas')
+          if (canvas) canvas.style.cursor = State.get('boardTool') === 'text' ? 'text' : 'crosshair'
+        }
+      })
+    })
+
+    // ── Board tools ─────────────────────────────────────────────
+    document.querySelectorAll('[data-btool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-btool]').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        State.set('boardTool', btn.dataset.btool)
+        const canvas = $('board-canvas')
+        if (canvas) canvas.style.cursor = State.get('boardTool') === 'text' ? 'text' : 'crosshair'
+      })
+    })
+
+    $('board-color').addEventListener('input', e => State.set('boardColor', e.target.value))
+    $('board-width').addEventListener('input', e => State.set('boardWidth', +e.target.value))
+
+    $('btn-clear-board').addEventListener('click', () => {
+      if (State.get('role') === 'observer') { toast('Sin permisos para limpiar'); return }
+      if (!confirm('¿Limpiar toda la pizarra?')) return
+      const yStrokes = Yjs.getStrokes()
+      if (yStrokes) Yjs.getDoc().transact(() => yStrokes.delete(0, yStrokes.length))
+      State.set('strokes', [])
+      Bus.emit('board:cleared')
+      toast('Pizarra limpiada')
+    })
+
+    // ── Resize handle ───────────────────────────────────────────
+    let _resizing = false, _resizeStartX = 0, _resizeStartW = 0
+    $('resize-handle').addEventListener('mousedown', e => {
+      _resizing    = true
+      _resizeStartX = e.clientX
+      _resizeStartW = $('panel-left').offsetWidth
+      $('resize-handle').classList.add('dragging')
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor     = 'col-resize'
+    })
+    document.addEventListener('mousemove', e => {
+      if (!_resizing) return
+      $('panel-left').style.width = clamp(_resizeStartW + (e.clientX - _resizeStartX), 280, window.innerWidth - 280) + 'px'
+    })
+    document.addEventListener('mouseup', () => {
+      if (!_resizing) return
+      _resizing = false
+      $('resize-handle').classList.remove('dragging')
+      document.body.style.userSelect = ''
+      document.body.style.cursor     = ''
+      if (State.get('leftPanel') === 'board-view') Board.resize()
+    })
+
+    // ── Atajos de teclado globales ──────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (!e.altKey) return
+      if (e.key === 'b') document.querySelector('[data-panel="board-view"]').click()
+      if (e.key === 'e') document.querySelector('[data-panel="editor-view"]').click()
+      if (e.key === 'c') document.querySelector('[data-panel="chat-view"]').click()
+    })
+
+    // ── Auto-fill desde URL ─────────────────────────────────────
+    const urlRoom = new URLSearchParams(location.search).get('room')
+    if (urlRoom) {
+      $('tab-btn-join').click()
+      $('join-room').value = urlRoom.toUpperCase()
+      $('join-name').focus()
     } else {
-      S.rightPanel = target
-      document.querySelectorAll('#panel-right .view-content').forEach(v => v.classList.add('hidden'))
-      $(target).classList.remove('hidden')
-      if (target === 'chat-view') {
-        S.unread = 0
-        $('chat-badge').classList.add('hidden')
-        $('chat-messages').scrollTop = $('chat-messages').scrollHeight
-        $('chat-input').focus()
-      }
+      $('create-name').focus()
     }
-  })
-})
+  }
 
-// Board tools
-document.querySelectorAll('[data-btool]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-btool]').forEach(b => b.classList.remove('active'))
-    btn.classList.add('active')
-    S.boardTool = btn.dataset.btool
-    if (canvas) canvas.style.cursor = S.boardTool === 'text' ? 'text' : 'crosshair'
-  })
-})
+  // Esperar al DOM antes de registrar cualquier listener
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _init)
+  } else {
+    _init()
+  }
 
-$('board-color').addEventListener('input', e => S.boardColor = e.target.value)
-$('board-width').addEventListener('input', e => S.boardWidth = +e.target.value)
+  return {}
+})()
 
-$('btn-clear-board').addEventListener('click', () => {
-  if (S.role === 'observer') { toast('Sin permisos para limpiar'); return }
-  if (!confirm('¿Limpiar toda la pizarra?')) return
-  ydoc.transact(() => yStrokes.delete(0, yStrokes.length))
-  S.strokes = []
-  scheduleRedraw()
-  toast('Pizarra limpiada')
-})
-
-// Editor toolbar
-document.querySelectorAll('[data-action]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (S.role === 'observer') return
-    const action = btn.dataset.action
-    const actions = {
-      'bold':       () => wrapSelection('**','**'),
-      'italic':     () => wrapSelection('*','*'),
-      'code':       () => wrapSelection('`','`'),
-      'h1':         () => insertAtCursor('\n# '),
-      'h2':         () => insertAtCursor('\n## '),
-      'h3':         () => insertAtCursor('\n### '),
-      'math-inline':() => wrapSelection('$','$'),
-      'math-block': () => insertAtCursor('\n\n$$\n\n$$\n\n'),
-      'ul':         () => insertAtCursor('\n- '),
-      'hr':         () => insertAtCursor('\n---\n'),
-      'table':      () => insertAtCursor('\n| Columna 1 | Columna 2 | Columna 3 |\n|:---|:---:|---:|\n| Dato | Dato | Dato |\n'),
-    }
-    if (actions[action]) actions[action]()
-  })
-})
-
-// Chat send
-$('btn-send').addEventListener('click', sendChat)
-$('chat-input').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendChat() }})
-
-// Resize handle
-let resizing = false, resizeStartX = 0, resizeStartW = 0
-$('resize-handle').addEventListener('mousedown', e => {
-  resizing = true
-  resizeStartX = e.clientX
-  resizeStartW = $('panel-left').offsetWidth
-  $('resize-handle').classList.add('dragging')
-  document.body.style.userSelect = 'none'
-  document.body.style.cursor = 'col-resize'
-})
-document.addEventListener('mousemove', e => {
-  if (!resizing) return
-  const newW = clamp(resizeStartW + (e.clientX - resizeStartX), 280, window.innerWidth - 280)
-  $('panel-left').style.width = newW + 'px'
-})
-document.addEventListener('mouseup', () => {
-  resizing = false
-  $('resize-handle').classList.remove('dragging')
-  document.body.style.userSelect = ''
-  document.body.style.cursor = ''
-  if (S.leftPanel === 'board-view') resizeCanvas()
-})
-
-// Global keyboard shortcuts
-document.addEventListener('keydown', e => {
-  if (e.altKey && e.key === 'b') { document.querySelector('[data-panel="board-view"]').click() }
-  if (e.altKey && e.key === 'e') { document.querySelector('[data-panel="editor-view"]').click() }
-  if (e.altKey && e.key === 'c') { document.querySelector('[data-panel="chat-view"]').click() }
-})
-
-/* ═══════════════════════════════════════════════
-   SESSION STARTUP
-════════════════════════════════════════════════ */
-async function startSession(roomId, password, isHost) {
-  $('modal-overlay').classList.remove('active')
-
-  const app = $('app')
-  app.style.display = 'flex'
-  setTimeout(() => app.classList.add('visible'), 50)
-
-  $('room-code-display').textContent = roomId
-  $('status-dot').className = 'status-dot connecting'
-  $('status-text').textContent = 'Conectando...'
-
-  // Update URL
-  const url = new URL(location.href)
-  url.searchParams.set('room', roomId)
-  history.pushState({}, '', url)
-
-  await initYjs(roomId, password, isHost)
-  updateRoleUI()
-  watchRoleSignals()
-  initBoard()
-
-  // Update peers bar after awareness is initialized
-  setTimeout(() => { updatePeersUI(); updatePeersBar() }, 300)
-
-  // System message
-  setTimeout(() => {
-    const msg = { type:'system', text: `Sala ${roomId} — ${isHost ? 'creada' : 'unido'} como ${S.name}`, ts: Date.now() }
-    const container = $('chat-messages')
-    const el = document.createElement('div')
-    el.className = 'chat-sys'
-    el.textContent = msg.text
-    container.appendChild(el)
-
-    toast(isHost ? `Sala ${roomId} creada ✓` : `Unido a sala ${roomId} ✓`)
-  }, 500)
-
-  // Self in peers
-  updatePeersBar()
-}
-
-/* ═══════════════════════════════════════════════
-   URL PARAM AUTO-FILL
-════════════════════════════════════════════════ */
-const urlRoom = new URLSearchParams(location.search).get('room')
-if (urlRoom) {
-  $('tab-btn-join').click()
-  $('join-room').value = urlRoom.toUpperCase()
-  $('join-name').focus()
-}
-
-/* ═══════════════════════════════════════════════
-   FOCUS MANAGEMENT
-════════════════════════════════════════════════ */
-window.addEventListener('load', () => {
-  if (!urlRoom) $('create-name').focus()
-})
-
-}) // DOMContentLoaded
 </script>
 </body>
 </html>
