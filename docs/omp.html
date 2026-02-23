@@ -539,31 +539,23 @@ function simAscent(cfg){
     if(si<stages.length){
       const st=stages[si];
       const Thr=st.thrust;
-      // Direction: vertical until kick_speed reached, then gravity turn
+      // Kick: tilt rocket once vertical speed crosses kick_speed
+      if(!kicked && vh>kick_speed){
+        kicked=true;
+        const krad=kick_deg*Math.PI/180;
+        // Rotate velocity vector by kick_deg from vertical toward horizontal
+        const vx_new=vx+Math.sin(krad)*vh;
+        const vh_new=vh*Math.cos(krad);
+        vx=vx_new; vh=vh_new;
+      }
+      // Thrust direction: vertical before kick, along velocity vector after
       let dirx,dirh;
       if(!kicked){
-        if(vx<1e-4){dirx=0;dirh=1;} // pure vertical
-        else{kicked=true;}
-      }
-      if(kicked){
-        // Gravity turn: thrust along velocity vector
-        // Add initial kick: tilt by kick_deg at start of gravity turn
-        if(v>1){
-          // Compute flight path angle from vertical
-          const ang_v=Math.atan2(vx,vh); // angle from vertical
-          // Drive toward gravity turn naturally
-          dirx=vx/v; dirh=vh/v;
-        } else {dirx=Math.sin(kick_deg*Math.PI/180);dirh=Math.cos(kick_deg*Math.PI/180);}
-      }
-      if(!kicked){dirx=0;dirh=1;}
-      // Apply kick impulse at vh>kick_speed
-      if(!kicked&&vh>kick_speed){
-        kicked=true;
-        // Initial kick: add horizontal velocity
-        const krad=kick_deg*Math.PI/180;
-        // Redistribute some vertical velocity to horizontal
-        vx+=Math.sin(krad)*vh; vh*=Math.cos(krad);
-        dirx=vx/Math.sqrt(vx*vx+vh*vh);dirh=vh/Math.sqrt(vx*vx+vh*vh);
+        dirx=0; dirh=1;
+      } else {
+        const vMag=Math.sqrt(vx*vx+vh*vh);
+        if(vMag>0.1){ dirx=vx/vMag; dirh=vh/vMag; }
+        else { dirx=0; dirh=1; }
       }
 
       mdot_=Thr/(st.isp*G0);
@@ -658,7 +650,7 @@ async function computeCarpet(s2_isp, eps1, eps2){
   bar.style.width='100%';
   await new Promise(r=>setTimeout(r,30));
   pg.classList.remove('vis');carpetBusy=false;
-  vpCarpet.draw();
+  vpPK.draw();
 }
 // ══ APP STATE ══════════════════════════════════════════════════
 const ST={
@@ -725,9 +717,19 @@ class SolarVP extends VP{
     if(!ST.sel)return;const sel=ST.sel;
     const s1=planetState(ST.orig,ST.epochYr+sel.t_dep_d/365.25),s2=planetState(ST.dest,ST.epochYr+sel.t_arr_d/365.25);
     const lam=lambert({x:s1.x,y:s1.y},{x:s2.x,y:s2.y},sel.tof_d);if(!lam)return;
-    const N=200,dt=sel.tof_d/365.25/N;let rx=s1.x,ry=s1.y,vx=lam.v1.x,vy=lam.v1.y;
+    const N=300,dt=sel.tof_d/365.25/N;
+    let rx=s1.x,ry=s1.y,vx=lam.v1.x,vy=lam.v1.y;
+    // Leapfrog: pre-kick velocity by half step so drift/kick alternate correctly
+    const accel=(x,y)=>{const r3=(x*x+y*y)**1.5;return[-MU_S_AU*x/r3,-MU_S_AU*y/r3];};
+    let[ax,ay]=accel(rx,ry);
+    vx+=ax*dt*0.5; vy+=ay*dt*0.5;
     const pts=[this.w2c(rx,ry)];
-    for(let i=0;i<N;i++){const r2=rx*rx+ry*ry,r3=r2**1.5,ax=-MU_S_AU*rx/r3,ay=-MU_S_AU*ry/r3;vx+=ax*dt;vy+=ay*dt;rx+=vx*dt;ry+=vy*dt;pts.push(this.w2c(rx,ry));}
+    for(let i=0;i<N;i++){
+      rx+=vx*dt; ry+=vy*dt;          // drift
+      [ax,ay]=accel(rx,ry);
+      vx+=ax*dt; vy+=ay*dt;          // kick
+      pts.push(this.w2c(rx,ry));
+    }
     this.gradLine(pts,'rgba(23,212,232,.9)','rgba(139,110,245,.9)',1.6);this.gradLine(pts,'rgba(23,212,232,.12)','rgba(139,110,245,.12)',6);
     const p1=this.w2c(s1.x,s1.y),p2=this.w2c(s2.x,s2.y),t_=performance.now()/1000,pulse=1+.14*Math.sin(t_*2.8);
     this.circ(p1.x,p1.y,4,'#e8a017',null,1.5);this.circ(p1.x,p1.y,10*pulse,'#e8a017',null,.7,.15);
@@ -873,7 +875,43 @@ class PlanetVP extends VP{
     const lines=[this.role==='dep'?'HIPÉRBOLA ESCAPE':'HIPÉRBOLA CAPTURA',p.name+'  μ='+(p.mu/1e12).toFixed(2)+'×10¹² m³/s²',this._vi?'v∞ = '+(this._vi/1e3).toFixed(3)+' km/s':'← Seleccionar en Porkchop'];
     const dp=this.DPR;ctx.save();ctx.font=`${8*dp}px JetBrains Mono,monospace`;lines.forEach((l,i)=>{ctx.fillStyle=i===0?this._col+'cc':'rgba(82,90,120,.75)';ctx.fillText(l,12,H-38+i*13*dp);});ctx.restore();
   }
-  _drawHyp(p,Rkm,hyp,col){const a=hyp.a/1e3,e=hyp.e,thInf=hyp.th_inf,N=200,eps=0.04,pts=[];for(let i=0;i<=N;i++){const nu=-thInf+eps+(2*thInf-2*eps)*i/N,r=a*(e*e-1)/(1+e*Math.cos(nu));if(r<0||r>1e7)continue;const ang=nu+Math.PI/2;pts.push(this.w2c(r*Math.cos(ang),r*Math.sin(ang)));}this.poly(pts,col,1.5,.9);this.poly(pts,col,5,.08);const O=this.w2c(0,0);for(const sign of[-1,1]){const ang=thInf*sign+Math.PI/2+Math.PI;const fp=this.w2c(1e6*Math.cos(ang),1e6*Math.sin(ang));this.ln(O.x,O.y,fp.x,fp.y,col,.6,.2,[3,8]);}const rp_km=hyp.r_p/1e3,peri=this.w2c(0,-rp_km);this.circ(peri.x,peri.y,5,col,col+'80',1.5);const dvL=Math.min(60,Math.max(15,hyp.dv/200))*this.DPR;this.arr(peri.x,peri.y,peri.x+dvL,peri.y,'#e84a3a',1.5,5);this.txt('Δv='+(hyp.dv/1e3).toFixed(3)+'km/s',peri.x+dvL+4,peri.y,'#e84a3a',8.5);this.txt('e='+e.toFixed(4),peri.x+dvL+4,peri.y+12,col,7.5);if(this._vi)this.txt('v∞='+(this._vi/1e3).toFixed(3)+'km/s',peri.x+dvL+4,peri.y+22,col,7.5);}
+  _drawHyp(p,Rkm,hyp,col){
+    const a=hyp.a/1e3,e=hyp.e,thInf=hyp.th_inf;
+    const soiKm=p.soi/1e3;
+    const eps=0.05,N=250;
+    // Periapsis is at nu=0. Orient so periapsis points downward (−y axis),
+    // so peri screen position = w2c(0, −rp_km) which matches the Δv arrow placement.
+    const pts=[];
+    for(let i=0;i<=N;i++){
+      const nu=-thInf+eps+(2*(thInf-eps))*i/N;
+      const r=a*(e*e-1)/(1+e*Math.cos(nu));
+      // Skip points beyond SOI or behind focus (r<0 means wrong branch)
+      if(r<=0||!isFinite(r)||r>soiKm)continue;
+      // Convention: nu=0 → (0, −r), i.e. periapsis downward
+      const wx= r*Math.sin(nu);   // horizontal
+      const wy=-r*Math.cos(nu);   // vertical (negative = down in world coords where +y=up)
+      pts.push(this.w2c(wx,wy));
+    }
+    if(pts.length>1){this.poly(pts,col,1.5,.9);this.poly(pts,col,5,.08);}
+    // Asymptote lines from focus, clipped to SOI radius
+    const O=this.w2c(0,0);
+    for(const sign of[-1,1]){
+      // Asymptote direction: at angle (π − thInf·sign) from +y downward axis
+      const asymNu=thInf*sign;
+      const wx2=soiKm*Math.sin(asymNu);
+      const wy2=-soiKm*Math.cos(asymNu);
+      const fp=this.w2c(wx2,wy2);
+      this.ln(O.x,O.y,fp.x,fp.y,col,.6,.22,[3,8]);
+    }
+    // Periapsis marker and Δv arrow (periapsis is directly below origin)
+    const rp_km=hyp.r_p/1e3,peri=this.w2c(0,-rp_km);
+    this.circ(peri.x,peri.y,5,col,col+'80',1.5);
+    const dvL=Math.min(60,Math.max(15,hyp.dv/200))*this.DPR;
+    this.arr(peri.x,peri.y,peri.x+dvL,peri.y,'#e84a3a',1.5,5);
+    this.txt('Δv='+(hyp.dv/1e3).toFixed(3)+'km/s',peri.x+dvL+4,peri.y,'#e84a3a',8.5);
+    this.txt('e='+e.toFixed(4),peri.x+dvL+4,peri.y+12,col,7.5);
+    if(this._vi)this.txt('v∞='+(this._vi/1e3).toFixed(3)+'km/s',peri.x+dvL+4,peri.y+22,col,7.5);
+  }
 }
 // ══════════════════════════════════════════════════════════════
 // ASCENT VPs
@@ -910,28 +948,27 @@ class EarthVP extends VP{
   _traj(){
     const res=ST.asc_result;if(!res||!res.traj.length)return;
     const O=this.w2c(0,0);
-    // Convert (x_downrange, h_altitude) to polar coords around Earth center
-    // Launch from (0, R_E), theta = x/R_E, r = R_E + h
-    const pts=res.traj.map(p=>{
-      const theta_rad=p.x/(R_E+p.h/2); // approximate downrange angle
-      const r=R_E+p.h;
-      const wx=r*Math.sin(theta_rad),wy=r*Math.cos(theta_rad);
-      return this.w2c(wx,wy);
-    });
-    // Color by phase (stage)
+    // Convert flat-Earth (x_downrange, h_altitude) to polar around Earth center.
+    // True arc angle = downrange / Earth_radius. r = R_E + h.
+    // Launch is at (0, R_E) in world coords → screen "top" of Earth circle.
+    const toPolar=(xm,hm)=>{
+      const theta=xm/R_E;          // radians; accurate for LEO downranges (<2000 km)
+      const r=R_E+Math.max(0,hm);
+      return this.w2c(r*Math.sin(theta), r*Math.cos(theta));
+    };
+    const pts=res.traj.map(p=>toPolar(p.x,p.h));
+    // Draw segments coloured by active stage
     let pLast=pts[0];
     for(let i=1;i<pts.length;i++){
-      const si_=res.traj[i].si;
-      const col=si_===0?'#e8a017':si_===1?'#8b6ef5':'#17d4e8';
+      const col=res.traj[i].si===0?'#e8a017':res.traj[i].si===1?'#8b6ef5':'#17d4e8';
       this.ln(pLast.x,pLast.y,pts[i].x,pts[i].y,col,1.8,.8);
       pLast=pts[i];
     }
     this.gradLine(pts,'rgba(232,160,23,.15)','rgba(23,212,232,.15)',6);
 
-    // Events (staging, MaxQ, orbit)
+    // Events
     res.events.forEach(ev=>{
-      const theta_rad=ev.x/(R_E+ev.h/2),r=R_E+ev.h;
-      const pp=this.w2c(r*Math.sin(theta_rad),r*Math.cos(theta_rad));
+      const pp=toPolar(ev.x,ev.h);
       const t_=performance.now()/900,pulse=1+.2*Math.sin(t_*3);
       if(ev.type==='sep'){this.circ(pp.x,pp.y,6*pulse,'#e8a017',null,1.5);this.txt(`Sep. E${ev.si+1}`,pp.x+8,pp.y,'#e8a017',8);}
       if(ev.type==='orbit'){this.circ(pp.x,pp.y,7*pulse,'#3ae882','#3ae88240',1.5);this.txt('ÓRBITA',pp.x+9,pp.y,'#3ae882',9);}
@@ -939,9 +976,10 @@ class EarthVP extends VP{
     // Launch point
     const pLaunch=this.w2c(0,R_E);
     this.circ(pLaunch.x,pLaunch.y,5,'#17d4e8','#17d4e840',1.5);this.txt('Launch',pLaunch.x+6,pLaunch.y,'#17d4e8',8);
-    // MaxQ marker
+    // MaxQ: locate trajectory point closest to recorded maxQ_h
     if(res.maxQ>0){
-      const theta_mq=0,r_mq=R_E+res.maxQ_h,pp=this.w2c(r_mq*Math.sin(theta_mq),r_mq*Math.cos(theta_mq));
+      const mq=res.traj.reduce((best,p)=>Math.abs(p.h-res.maxQ_h)<Math.abs(best.h-res.maxQ_h)?p:best,res.traj[0]);
+      const pp=toPolar(mq.x,mq.h);
       this.circ(pp.x,pp.y,5,'#e84a3a',null,1.5,[3,4]);this.txt('MaxQ',pp.x+6,pp.y,'#e84a3a',7.5);
     }
   }
@@ -976,16 +1014,19 @@ class VelAltVP extends VP{
     const px=(v_kms)=>PAD.l+v_kms/V_MAX*pw;
     const py=(h_km)=>H-PAD.b-h_km/H_MAX*ph;
 
-    // Grid
+    // Grid — adaptive step to prevent label overlap
+    const vStep=V_MAX>7?2:V_MAX>4?1:0.5;
+    const hStep=H_MAX>800?200:H_MAX>400?100:50;
     ctx.save();ctx.strokeStyle='rgba(20,24,38,.8)';ctx.lineWidth=.5;ctx.setLineDash([2,6]);
-    for(let v=0;v<=V_MAX;v+=0.5){const x=px(v);ctx.beginPath();ctx.moveTo(x,PAD.t);ctx.lineTo(x,H-PAD.b);ctx.stroke();}
-    for(let h=0;h<=H_MAX;h+=100){const y=py(h);ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(W-PAD.r,y);ctx.stroke();}
+    for(let v=0;v<=V_MAX+1e-9;v+=vStep){const x=px(v);ctx.beginPath();ctx.moveTo(x,PAD.t);ctx.lineTo(x,H-PAD.b);ctx.stroke();}
+    for(let h=0;h<=H_MAX+1e-9;h+=hStep){const y=py(h);ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(W-PAD.r,y);ctx.stroke();}
     ctx.setLineDash([]);ctx.restore();
 
-    // Reference: circular velocity curve v_circ(h)
-    const cPts=[];for(let h=0;h<=H_MAX;h+=10){const v=Math.sqrt(MU_E/(R_E+h*1e3))/1e3;if(v<V_MAX)cPts.push({x:px(v),y:py(h)});}
-    ctx.save();ctx.strokeStyle='rgba(58,232,130,.5)';ctx.lineWidth=1.2;ctx.setLineDash([4,5]);ctx.beginPath();if(cPts.length){ctx.moveTo(cPts[0].x,cPts[0].y);cPts.forEach(p=>ctx.lineTo(p.x,p.y));}ctx.stroke();ctx.setLineDash([]);ctx.restore();
-    ctx.save();ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(58,232,130,.7)';ctx.fillText('v_circ(h)',px(V_MAX*.5),py(h_tgt/1e3/2)+10);ctx.restore();
+    const cPts=[];for(let h=0;h<=H_MAX;h+=10){const v=Math.sqrt(MU_E/(R_E+h*1e3))/1e3;if(v<=V_MAX)cPts.push({x:px(v),y:py(h)});}
+    if(cPts.length>1){ctx.save();ctx.strokeStyle='rgba(58,232,130,.5)';ctx.lineWidth=1.2;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(cPts[0].x,cPts[0].y);cPts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    // Label near the middle of the visible curve
+    const mid=cPts[Math.floor(cPts.length*0.5)];
+    ctx.save();ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(58,232,130,.7)';ctx.fillText('v_circ(h)',mid.x+4,mid.y-5);ctx.restore();}
 
     // Trajectory v-h path
     if(res&&res.traj.length){
@@ -999,8 +1040,8 @@ class VelAltVP extends VP{
 
     // Axes labels
     ctx.save();ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(82,90,120,.85)';
-    for(let v=0;v<=V_MAX;v+=0.5){const x=px(v);ctx.fillText(v.toFixed(1),x-8,H-PAD.b+12);}
-    for(let h=0;h<=H_MAX;h+=100){const y=py(h);ctx.fillText(h+'km',2,y+3);}
+    for(let v=0;v<=V_MAX+1e-9;v+=vStep){const x=px(v);ctx.fillText(v.toFixed(1),x-8,H-PAD.b+12);}
+    for(let h=0;h<=H_MAX+1e-9;h+=hStep){const y=py(h);ctx.fillText(h+'km',2,y+3);}
     ctx.fillStyle='rgba(82,90,120,.8)';ctx.fillText('Velocidad (km/s) →',PAD.l+pw/2-40,H-4);
     ctx.save();ctx.translate(11,PAD.t+ph/2+15);ctx.rotate(-Math.PI/2);ctx.fillText('Altitud →',0,0);ctx.restore();
     ctx.restore();
@@ -1027,40 +1068,78 @@ class AtmVP extends VP{
 
     const py=(h_km)=>H-PAD.b-h_km/H_MAX*ph;
 
-    // Atmosphere density profile (left axis) and dynamic pressure (right axis, if simulation exists)
-    const rhoMax=1.3,qMax=50000; // kg/m³, Pa
+    // ── Left half: ISA density, log10 scale ──────────────────────
+    // ρ at sea level ≈ 1.225 kg/m³ → log10 ≈ 0.088
+    // ρ at 500 km   ≈ 0              → clip to LOG_MIN
+    const LOG_MIN=-9, LOG_MAX=0.15;
+    const xISA=(rho)=>{
+      const lv=rho>0 ? Math.max(LOG_MIN,Math.log10(rho)) : LOG_MIN;
+      return PAD.l+(lv-LOG_MIN)/(LOG_MAX-LOG_MIN)*(pw*0.46);
+    };
+    const rhoPts=[];
+    for(let h=0;h<=H_MAX;h+=0.5){
+      const rho=isaDensity(h*1e3);
+      rhoPts.push({x:xISA(rho),y:py(h)});
+    }
+    ctx.save();ctx.strokeStyle='rgba(74,144,232,.8)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(rhoPts[0].x,rhoPts[0].y);
+    rhoPts.forEach(p=>ctx.lineTo(p.x,p.y));
+    ctx.stroke();ctx.restore();
 
-    // Density profile
-    const rhoPts=[];for(let h=0;h<=H_MAX;h+=1){const rho=isaDensity(h*1e3);if(rho>1e-10){const x=PAD.l+(Math.log10(rho)+7)/7*pw;rhoPts.push({x,y:py(h)});}}
-    ctx.save();ctx.strokeStyle='rgba(74,144,232,.7)';ctx.lineWidth=1.5;if(rhoPts.length){ctx.beginPath();ctx.moveTo(rhoPts[0].x,rhoPts[0].y);rhoPts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();}ctx.restore();
-
-    // Atmosphere layer fills
-    const layers=[{h0:0,h1:11,col:'rgba(10,40,100,.12)',name:'Troposfera'},{h0:11,h1:50,col:'rgba(10,80,20,.10)',name:'Estratosfera'},{h0:50,h1:85,col:'rgba(60,10,80,.08)',name:'Mesosfera'},{h0:85,h1:Math.min(H_MAX,600),col:'rgba(10,10,60,.06)',name:'Termosfera'}];
+    // Atmosphere layer fills (full width)
+    const layers=[{h0:0,h1:11,col:'rgba(10,40,100,.12)',name:'Troposfera'},{h0:11,h1:50,col:'rgba(10,80,20,.09)',name:'Estratosfera'},{h0:50,h1:85,col:'rgba(60,10,80,.08)',name:'Mesosfera'},{h0:85,h1:Math.min(H_MAX,600),col:'rgba(10,10,60,.06)',name:'Termosfera'}];
     layers.forEach(l=>{
       if(l.h0>=H_MAX)return;
       const y0=py(l.h0),y1=py(Math.min(l.h1,H_MAX));
       ctx.save();ctx.fillStyle=l.col;ctx.fillRect(PAD.l,y1,pw,y0-y1);ctx.restore();
-      ctx.save();ctx.font=`${7*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(82,90,120,.6)';ctx.fillText(l.name,PAD.l+3,py((l.h0+Math.min(l.h1,H_MAX))/2));ctx.restore();
+      ctx.save();ctx.font=`${7*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(82,90,120,.55)';
+      ctx.fillText(l.name,PAD.l+4,py((l.h0+Math.min(l.h1,H_MAX))/2));ctx.restore();
     });
 
-    // Dynamic pressure from simulation
+    // Separator between left (ρ) and right (q) zones
+    const xSep=PAD.l+pw*0.5;
+    ctx.save();ctx.strokeStyle='rgba(28,34,54,.9)';ctx.lineWidth=.8;ctx.setLineDash([2,5]);
+    ctx.beginPath();ctx.moveTo(xSep,PAD.t);ctx.lineTo(xSep,H-PAD.b);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+
+    // ── Right half: dynamic pressure q(t) ────────────────────────
     if(res&&res.traj.length){
-      const qPts=res.traj.map(p=>({x:PAD.l+(p.q/qMax)*pw*0.5,y:py(p.h/1e3)})); // right half
-      ctx.save();ctx.strokeStyle='rgba(232,74,58,.8)';ctx.lineWidth=1.5;if(qPts.length){ctx.beginPath();ctx.moveTo(qPts[0].x,qPts[0].y);qPts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();}ctx.restore();
-      // MaxQ line
-      if(res.maxQ>0){const yMQ=py(res.maxQ_h/1e3);ctx.save();ctx.strokeStyle='rgba(232,74,58,.4)';ctx.lineWidth=.8;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(PAD.l,yMQ);ctx.lineTo(W-PAD.r,yMQ);ctx.stroke();ctx.setLineDash([]);ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='#e84a3a';ctx.fillText('MaxQ '+res.maxQ_h.toFixed(0)+'m',W-PAD.r-60,yMQ-3);ctx.restore();}
+      const qPeak=Math.max(...res.traj.map(p=>p.q),1);
+      const xQ=(q)=>xSep+(q/qPeak)*(pw*0.46);
+      const qPts=res.traj.map(p=>({x:xQ(p.q),y:py(p.h/1e3)}));
+      ctx.save();ctx.strokeStyle='rgba(232,74,58,.85)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(qPts[0].x,qPts[0].y);
+      qPts.forEach(p=>ctx.lineTo(p.x,p.y));
+      ctx.stroke();ctx.restore();
+      // MaxQ horizontal dashed line
+      if(res.maxQ>0){
+        const yMQ=py(res.maxQ_h/1e3);
+        ctx.save();ctx.strokeStyle='rgba(232,74,58,.35)';ctx.lineWidth=.8;ctx.setLineDash([4,6]);
+        ctx.beginPath();ctx.moveTo(PAD.l,yMQ);ctx.lineTo(W-PAD.r,yMQ);ctx.stroke();ctx.setLineDash([]);
+        ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='#e84a3a';
+        ctx.fillText('MaxQ '+(res.maxQ_h/1e3).toFixed(1)+'km · '+res.maxQ.toFixed(0)+' Pa',W-PAD.r-105,yMQ-3);
+        ctx.restore();
+      }
+      // Right axis scale labels
+      ctx.save();ctx.font=`${7*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(232,74,58,.55)';
+      ctx.fillText('0',xSep+2,H-PAD.b-2);
+      ctx.fillText(qPeak.toFixed(0)+' Pa',W-PAD.r-36,H-PAD.b-2);
+      ctx.restore();
     }
 
     // Target orbit line
     ctx.save();ctx.strokeStyle='rgba(58,232,130,.4)';ctx.lineWidth=.8;ctx.setLineDash([3,6]);
-    const y_orb=py(h_tgt/1e3);ctx.beginPath();ctx.moveTo(PAD.l,y_orb);ctx.lineTo(W-PAD.r,y_orb);ctx.stroke();ctx.setLineDash([]);ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(58,232,130,.7)';ctx.fillText('Órbita '+Math.round(h_tgt/1e3)+'km',W-PAD.r-70,y_orb-3);ctx.restore();
+    const y_orb=py(h_tgt/1e3);ctx.beginPath();ctx.moveTo(PAD.l,y_orb);ctx.lineTo(W-PAD.r,y_orb);ctx.stroke();ctx.setLineDash([]);
+    ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(58,232,130,.7)';
+    ctx.fillText('Órbita '+Math.round(h_tgt/1e3)+'km',W-PAD.r-65,y_orb-3);ctx.restore();
 
-    // Altitude axis
+    // Altitude axis ticks (left side)
     ctx.save();ctx.font=`${7.5*DPR}px JetBrains Mono,monospace`;ctx.fillStyle='rgba(82,90,120,.85)';
-    const step=H_MAX>400?100:H_MAX>150?50:20;for(let h=0;h<=H_MAX;h+=step){const y=py(h);ctx.fillText(h+'km',2,y+3);}
-    ctx.fillStyle='rgba(82,90,120,.8)';ctx.fillText('Densidad atm. ISA →',PAD.l+pw*0.1,H-4);
-    if(res)ctx.fillText('← Presión dinámica q',PAD.l+pw*0.45,H-4);
-    ctx.save();ctx.translate(11,PAD.t+ph/2+20);ctx.rotate(-Math.PI/2);ctx.fillText('Altitud →',0,0);ctx.restore();
+    const hStepA=H_MAX>400?100:H_MAX>200?50:20;
+    for(let h=0;h<=H_MAX+0.1;h+=hStepA){ctx.fillText(h+'km',2,py(h)+3);}
+    // X-axis section labels
+    ctx.fillStyle='rgba(74,144,232,.65)';ctx.fillText('◀ ρ ISA (log₁₀)',PAD.l+2,H-4);
+    if(res){ctx.fillStyle='rgba(232,74,58,.65)';ctx.fillText('q(t) →',xSep+4,H-4);}
+    ctx.save();ctx.translate(11,PAD.t+ph/2+20);ctx.rotate(-Math.PI/2);ctx.fillStyle='rgba(82,90,120,.8)';ctx.fillText('Altitud →',0,0);ctx.restore();
     ctx.restore();
 
     // Legend

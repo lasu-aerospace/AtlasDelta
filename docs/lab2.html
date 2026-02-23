@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LabColab — Editor Científico Colaborativo</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#0d0e12;--s0:#13141a;--s1:#1a1c24;--s2:#22252f;--s3:#292c38;
+  --border:#2a2d3a;--border2:#363a4a;
+  --txt:#e4e6f0;--txt2:#8b90a8;--txt3:#52566a;
+  --accent:#4ade80;--accent2:#22c55e;
+  --blue:#60a5fa;--violet:#a78bfa;--amber:#fbbf24;--red:#f87171;
+  --r:12px;--rsm:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--txt);font-family:'Familjen Grotesk',sans-serif;font-size:14px;line-height:1.55;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.025) 2px,rgba(0,0,0,.025) 4px);}
+a{color:var(--accent);text-decoration:none;}
+button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
+input,textarea{font:inherit;color:inherit;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-overlay.active{opacity:1;pointer-events:all;}
+.modal{background:var(--s0);border:1px solid var(--border);border-radius:20px;padding:36px;width:min(440px,94vw);animation:modalIn .3s ease;}
+@keyframes modalIn{from{transform:translateY(20px) scale(.96);opacity:0;}to{transform:none;opacity:1;}}
+.modal-logo{font-size:2rem;text-align:center;margin-bottom:12px;color:var(--accent);}
+.modal-title{font-family:'Instrument Serif',serif;font-size:2rem;font-weight:400;text-align:center;background:linear-gradient(135deg,var(--txt) 30%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;}
+.modal-sub{text-align:center;color:var(--txt3);font-size:13px;margin-bottom:28px;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;}
+.modal-tabs{display:flex;background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:3px;gap:2px;margin-bottom:22px;}
+.modal-tab{flex:1;padding:7px;border-radius:6px;font-size:13px;font-weight:600;color:var(--txt3);transition:all .2s;}
+.modal-tab.active{background:var(--s2);color:var(--txt);}
+.modal-panel{display:none;}
+.modal-panel.active{display:block;}
+.form-group{margin-bottom:14px;}
+.form-group label{display:block;font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;}
+.form-group input{width:100%;background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 14px;font-size:14px;color:var(--txt);transition:border-color .2s;outline:none;}
+.form-group input:focus{border-color:var(--accent);}
+.btn-primary{width:100%;background:var(--accent);color:#0d0e12;border-radius:var(--rsm);padding:11px;font-weight:700;font-size:14px;letter-spacing:.02em;transition:all .2s;margin-top:4px;}
+.btn-primary:hover{background:var(--accent2);}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-header h3{font-family:'Instrument Serif',serif;font-size:1.4rem;font-weight:400;}
+.modal-close{font-size:18px;color:var(--txt3);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.modal-close:hover{background:var(--s2);color:var(--txt);}
+
+/* ── APP LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh;opacity:0;transition:opacity .3s;}
+.app.visible{opacity:1;}
+
+/* ── TOPBAR ── */
+.topbar{height:48px;background:var(--s0);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 14px;flex-shrink:0;z-index:10;}
+.topbar-logo{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;margin-right:4px;}
+.topbar-logo span{color:var(--txt);font-size:13px;font-weight:400;}
+.room-badge{display:flex;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:4px 10px;}
+.room-label{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);}
+.room-code{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--txt);letter-spacing:.08em;}
+.btn-icon{background:var(--s2);border:1px solid var(--border);border-radius:5px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--txt2);transition:all .15s;}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent);}
+.peers-bar{display:flex;align-items:center;gap:4px;margin-left:2px;}
+.peer-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid var(--bg);font-family:'JetBrains Mono',monospace;cursor:default;position:relative;}
+.peer-avatar[title]:hover::after{content:attr(title);position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;white-space:nowrap;font-size:11px;color:var(--txt);font-family:'Familjen Grotesk',sans-serif;pointer-events:none;z-index:100;}
+.topbar-sep{height:20px;width:1px;background:var(--border);margin:0 2px;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.btn-small{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--txt2);transition:all .2s;display:flex;align-items:center;gap:5px;}
+.btn-small:hover{border-color:var(--accent);color:var(--accent);}
+.role-chip{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:4px;border:1px solid;}
+.role-host{color:var(--accent);border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.07);}
+.role-editor{color:var(--blue);border-color:rgba(96,165,250,.25);background:rgba(96,165,250,.07);}
+.role-observer{color:var(--txt3);border-color:var(--border);background:transparent;}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;display:flex;overflow:hidden;min-height:0;}
+.panel-left{display:flex;flex-direction:column;width:50%;min-width:280px;border-right:1px solid var(--border);}
+.panel-right{display:flex;flex-direction:column;flex:1;min-width:240px;}
+.resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .2s;flex-shrink:0;z-index:5;}
+.resize-handle:hover,.resize-handle.dragging{background:var(--accent);}
+
+/* ── PANEL TABS ── */
+.panel-tabs{display:flex;align-items:center;background:var(--s0);border-bottom:1px solid var(--border);flex-shrink:0;padding:0 8px;gap:2px;height:38px;overflow-x:auto;overflow-y:hidden;}
+.panel-tabs::-webkit-scrollbar{height:0;}
+.ptab{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;color:var(--txt3);transition:all .2s;white-space:nowrap;flex-shrink:0;}
+.ptab.active{background:var(--s2);color:var(--txt);}
+.ptab:hover:not(.active){color:var(--txt2);}
+.tab-spacer{flex:1;}
+.badge{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#0d0e12;border-radius:8px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;margin-left:4px;}
+.hidden{display:none !important;}
+.badge.hidden{display:none;}
+
+/* ── EDITOR TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:2px;padding:0 4px;}
+.tool-btn{background:none;border:1px solid transparent;border-radius:5px;padding:3px 7px;font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',monospace;transition:all .15s;}
+.tool-btn:hover{background:var(--s2);border-color:var(--border);color:var(--txt);}
+.tool-sep{width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0;}
+
+/* ── BOARD TOOLBAR ── */
+.board-tools{display:flex;align-items:center;gap:2px;padding:0 4px;}
+.btool{background:none;border:1px solid transparent;border-radius:5px;padding:4px 8px;font-size:13px;color:var(--txt3);transition:all .15s;}
+.btool:hover{background:var(--s2);border-color:var(--border);color:var(--txt);}
+.btool.active{background:var(--s2);border-color:var(--accent);color:var(--accent);}
+.color-picker{width:26px;height:26px;border:1px solid var(--border);border-radius:5px;padding:1px;cursor:pointer;background:none;}
+.width-slider{width:60px;accent-color:var(--accent);cursor:pointer;}
+
+/* ── VIEW CONTENT ── */
+.view-content{flex:1;overflow:auto;min-height:0;display:flex;flex-direction:column;}
+.view-content.hidden{display:none;}
+
+/* ── EDITOR ── */
+.editor-wrap{position:relative;flex:1;display:flex;flex-direction:column;}
+.editor-textarea{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.75;padding:22px 24px;resize:none;tab-size:2;width:100%;}
+.editor-textarea::placeholder{color:var(--txt3);font-style:italic;}
+.editor-textarea:read-only{color:var(--txt2);cursor:default;}
+
+/* ── PREVIEW ── */
+.preview-wrap{padding:22px 26px;flex:1;}
+.preview-empty{color:var(--txt3);font-size:13px;font-style:italic;font-family:'Instrument Serif',serif;}
+.preview-wrap h1{font-family:'Instrument Serif',serif;font-size:1.9rem;font-weight:400;color:var(--txt);margin:0 0 14px;line-height:1.15;letter-spacing:-.02em;}
+.preview-wrap h2{font-family:'Instrument Serif',serif;font-size:1.4rem;font-weight:400;color:var(--txt);margin:22px 0 10px;font-style:italic;}
+.preview-wrap h3{font-family:'Familjen Grotesk',sans-serif;font-size:1rem;font-weight:700;color:var(--txt);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;font-size:.85rem;}
+.preview-wrap p{color:var(--txt2);font-size:14.5px;margin-bottom:10px;line-height:1.7;}
+.preview-wrap strong{color:var(--txt);font-weight:700;}
+.preview-wrap em{color:var(--txt);font-style:italic;}
+.preview-wrap code{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);}
+.preview-wrap pre{background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:14px 16px;overflow-x:auto;margin:12px 0;}
+.preview-wrap pre code{background:none;border:none;padding:0;font-size:12.5px;color:var(--txt2);}
+.preview-wrap blockquote{border-left:3px solid var(--border2);padding-left:16px;margin:12px 0;color:var(--txt2);font-style:italic;}
+.preview-wrap table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0;}
+.preview-wrap th{background:var(--s2);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);border:1px solid var(--border);text-align:left;}
+.preview-wrap td{padding:8px 12px;color:var(--txt2);border:1px solid var(--border);font-size:13.5px;}
+.preview-wrap tr:hover td{background:rgba(255,255,255,.02);}
+.preview-wrap ul,.preview-wrap ol{padding-left:22px;color:var(--txt2);font-size:14px;margin:8px 0;}
+.preview-wrap li{margin-bottom:4px;}
+.preview-wrap hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
+.preview-wrap .math-error{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:12px;}
+.preview-wrap .katex-display{margin:16px 0;overflow-x:auto;}
+.preview-wrap .katex{color:var(--txt);}
+
+/* ── WHITEBOARD ── */
+.board-wrap{position:relative;flex:1;background:var(--bg);overflow:hidden;cursor:crosshair;}
+.board-canvas{position:absolute;inset:0;width:100%;height:100%;}
+.board-text-input{position:absolute;background:rgba(13,14,18,.85);border:1px solid var(--accent);border-radius:4px;padding:4px 8px;color:var(--txt);font-family:'Familjen Grotesk',sans-serif;font-size:14px;min-width:120px;outline:none;display:none;}
+
+/* ── CHAT ── */
+.chat-wrap{display:flex;flex-direction:column;flex:1;min-height:0;}
+.chat-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+.chat-messages::-webkit-scrollbar{width:4px;}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.chat-msg{display:flex;flex-direction:column;gap:2px;max-width:90%;}
+.chat-msg.own{align-self:flex-end;}
+.msg-meta{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--txt3);display:flex;align-items:center;gap:6px;}
+.msg-author{font-weight:600;}
+.msg-bubble{background:var(--s1);border:1px solid var(--border);border-radius:10px;border-top-left-radius:2px;padding:8px 12px;font-size:13.5px;color:var(--txt2);line-height:1.5;word-break:break-word;}
+.chat-msg.own .msg-bubble{background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.2);border-radius:10px;border-top-right-radius:2px;color:var(--txt);}
+.chat-sys{text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt3);padding:4px 0;}
+.chat-input-area{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
+.chat-input{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;transition:border-color .2s;}
+.chat-input:focus{border-color:var(--accent);}
+.btn-send{background:var(--accent);color:#0d0e12;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;transition:background .2s;}
+.btn-send:hover{background:var(--accent2);}
+.typing-indicator{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt3);padding:2px 16px;height:18px;}
+
+/* ── PEERS ── */
+.peers-wrap{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;}
+.peer-item{background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 14px;display:flex;align-items:center;gap:10px;transition:border-color .2s;}
+.peer-item:hover{border-color:var(--border2);}
+.peer-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.peer-info{flex:1;min-width:0;}
+.peer-name{font-weight:600;font-size:13.5px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.peer-status{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--txt3);letter-spacing:.08em;}
+.peer-actions{display:flex;gap:4px;}
+.peer-action-btn{font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);color:var(--txt2);background:var(--s2);font-family:'JetBrains Mono',monospace;transition:all .15s;}
+.peer-action-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── STATUS BAR ── */
+.status-bar{height:26px;background:var(--s0);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt3);}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background .3s;}
+.status-dot.connected{background:var(--accent);}
+.status-dot.connecting{background:var(--amber);animation:blink .8s infinite;}
+.status-dot.disconnected{background:var(--red);}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.status-sep{color:var(--border2);}
+.status-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.status-hash{color:var(--txt3);font-size:9px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.word-count{color:var(--txt3);}
+
+/* ── EXPORT MODAL ── */
+.export-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.export-btn{background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:12px 16px;font-size:13.5px;color:var(--txt2);text-align:left;transition:all .2s;display:flex;align-items:center;gap:10px;}
+.export-btn:hover{border-color:var(--accent);color:var(--txt);}
+.hash-box{background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:14px 16px;}
+.hash-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;}
+.hash-value{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);word-break:break-all;line-height:1.6;}
+
+/* ── NOTIFICATION TOAST ── */
+.toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--s1);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 18px;font-size:13px;color:var(--txt);z-index:2000;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── SCROLL STYLES ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--txt3);}
+
+/* ── PRINT STYLES ── */
+@media print{
+  .topbar,.status-bar,.panel-left,.resize-handle,.panel-tabs{display:none!important;}
+  .main-area,.panel-right,.app{display:block!important;height:auto!important;overflow:visible!important;}
+  .preview-wrap{padding:20mm;font-size:11pt;line-height:1.6;}
+  body{background:white;color:black;}
+  .preview-wrap h1,.preview-wrap h2,.preview-wrap h3{color:black;}
+  .preview-wrap p,.preview-wrap li,.preview-wrap td{color:#333;}
+  .preview-wrap table{border-collapse:collapse;}
+  .preview-wrap th,.preview-wrap td{border:1px solid #ccc;}
+  .view-content{overflow:visible!important;}
+  #preview-view{display:block!important;}
+  .katex{color:black!important;}
+}
+
+/* ── REMOTE CURSOR ── */
+.remote-cursor-line{position:absolute;width:2px;pointer-events:none;transition:left .05s,top .05s;z-index:10;}
+.remote-cursor-label{position:absolute;top:-20px;left:0;font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;white-space:nowrap;color:#0d0e12;font-weight:700;}
+</style>
+</head>
+<body>
+
+<!-- SESSION MODAL -->
+<div id="modal-overlay" class="modal-overlay active">
+  <div class="modal">
+    <div class="modal-logo">⬡</div>
+    <h2 class="modal-title">LabColab</h2>
+    <p class="modal-sub">// editor científico descentralizado</p>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tab-btn-create">Crear sala</button>
+      <button class="modal-tab" id="tab-btn-join">Unirse</button>
+    </div>
+    <div id="tab-create" class="modal-panel active">
+      <div class="form-group">
+        <label>Tu nombre</label>
+        <input type="text" id="create-name" placeholder="Investigador A" maxlength="32" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Contraseña (cifra el contenido)</label>
+        <input type="password" id="create-pass" placeholder="Opcional" autocomplete="new-password">
+      </div>
+      <button class="btn-primary" id="btn-create">Crear sala →</button>
+    </div>
+    <div id="tab-join" class="modal-panel">
+      <div class="form-group">
+        <label>Tu nombre</label>
+        <input type="text" id="join-name" placeholder="Investigador B" maxlength="32" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Código de sala</label>
+        <input type="text" id="join-room" placeholder="ABC123" maxlength="8" style="text-transform:uppercase;letter-spacing:.1em;" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="join-pass" placeholder="Si se configuró" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" id="btn-join">Unirse →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div id="export-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Exportar documento</h3>
+      <button class="modal-close" id="close-export">✕</button>
+    </div>
+    <div class="export-opts">
+      <button class="export-btn" id="exp-md">📄 Descargar Markdown (.md)</button>
+      <button class="export-btn" id="exp-html">🌐 Descargar HTML renderizado</button>
+      <button class="export-btn" id="exp-print">🖨 Imprimir / Guardar como PDF</button>
+    </div>
+    <div class="hash-box">
+      <div class="hash-label">SHA-256 del documento</div>
+      <div id="doc-hash" class="hash-value">calculando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="app" style="display:none;">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-logo">⬡ <span>LabColab</span></div>
+    <div class="topbar-sep"></div>
+    <div class="room-badge">
+      <span class="room-label">sala</span>
+      <span id="room-code-display" class="room-code">——</span>
+    </div>
+    <button id="btn-copy-room" class="btn-icon" title="Copiar código de sala">⎘</button>
+    <div class="topbar-sep"></div>
+    <div id="peers-bar" class="peers-bar"></div>
+    <div class="topbar-right">
+      <button id="btn-export-open" class="btn-small">↓ Exportar</button>
+      <div id="role-chip" class="role-chip role-observer">observer</div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main-area">
+    <!-- LEFT PANEL -->
+    <div class="panel-left" id="panel-left">
+      <!-- Panel tabs + toolbars -->
+      <div class="panel-tabs" id="left-tabs">
+        <button class="ptab active" data-panel="editor-view">✏ Texto</button>
+        <button class="ptab" data-panel="board-view">◻ Pizarra</button>
+        <div class="tab-spacer"></div>
+        <!-- Editor toolbar (shown in editor mode) -->
+        <div class="toolbar" id="editor-toolbar">
+          <button class="tool-btn" data-action="bold" title="Negrita Ctrl+B"><b>B</b></button>
+          <button class="tool-btn" data-action="italic" title="Cursiva Ctrl+I"><i>I</i></button>
+          <button class="tool-btn" data-action="code" title="Código">`</button>
+          <div class="tool-sep"></div>
+          <button class="tool-btn" data-action="h1">H1</button>
+          <button class="tool-btn" data-action="h2">H2</button>
+          <button class="tool-btn" data-action="h3">H3</button>
+          <div class="tool-sep"></div>
+          <button class="tool-btn" data-action="math-inline" title="Ecuación inline">$</button>
+          <button class="tool-btn" data-action="math-block" title="Ecuación bloque">$$</button>
+          <div class="tool-sep"></div>
+          <button class="tool-btn" data-action="table" title="Tabla">⊞</button>
+          <button class="tool-btn" data-action="ul" title="Lista">≡</button>
+          <button class="tool-btn" data-action="hr" title="Separador">—</button>
+        </div>
+        <!-- Board toolbar (shown in board mode) -->
+        <div class="board-tools hidden" id="board-toolbar">
+          <button class="btool active" data-btool="pen" title="Lápiz">✒</button>
+          <button class="btool" data-btool="line" title="Línea">╱</button>
+          <button class="btool" data-btool="rect" title="Rectángulo">▭</button>
+          <button class="btool" data-btool="circle" title="Círculo">○</button>
+          <button class="btool" data-btool="arrow" title="Flecha">→</button>
+          <button class="btool" data-btool="text" title="Texto T">T</button>
+          <button class="btool" data-btool="eraser" title="Borrador">⌫</button>
+          <div class="tool-sep"></div>
+          <input type="color" id="board-color" value="#4ade80" class="color-picker" title="Color">
+          <input type="range" id="board-width" min="1" max="20" value="2" class="width-slider" title="Grosor">
+          <div class="tool-sep"></div>
+          <button class="btool" id="btn-clear-board" title="Limpiar pizarra">✕ Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Editor view -->
+      <div id="editor-view" class="view-content">
+        <div class="editor-wrap">
+          <textarea id="editor-textarea" class="editor-textarea" spellcheck="false"
+            placeholder="# Título del documento&#10;&#10;Escribe en **Markdown** + ecuaciones LaTeX&#10;&#10;Ecuación inline: $E = mc^2$&#10;&#10;Ecuación en bloque:&#10;$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$"></textarea>
+          <div id="remote-cursors" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+        </div>
+      </div>
+
+      <!-- Board view -->
+      <div id="board-view" class="view-content hidden">
+        <div class="board-wrap" id="board-wrap">
+          <canvas id="board-canvas" class="board-canvas"></canvas>
+          <input type="text" id="board-text-input" class="board-text-input" placeholder="Escribir...">
+        </div>
+      </div>
+    </div>
+
+    <!-- RESIZE HANDLE -->
+    <div id="resize-handle" class="resize-handle"></div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel-right" id="panel-right">
+      <div class="panel-tabs">
+        <button class="ptab active" data-panel="preview-view">👁 Vista previa</button>
+        <button class="ptab" data-panel="chat-view">💬 Chat <span id="chat-badge" class="badge hidden">0</span></button>
+        <button class="ptab" data-panel="peers-view">👥 Peers</button>
+      </div>
+
+      <!-- Preview -->
+      <div id="preview-view" class="view-content">
+        <div class="preview-wrap">
+          <div id="preview-content"><p class="preview-empty">La vista previa aparecerá mientras escribes...</p></div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div id="chat-view" class="view-content hidden">
+        <div class="chat-wrap">
+          <div id="chat-messages" class="chat-messages"></div>
+          <div id="typing-indicator" class="typing-indicator"></div>
+          <div class="chat-input-area">
+            <input type="text" id="chat-input" class="chat-input" placeholder="Mensaje... (Enter para enviar)" maxlength="500" autocomplete="off">
+            <button id="btn-send" class="btn-send">↑</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Peers -->
+      <div id="peers-view" class="view-content hidden">
+        <div class="peers-wrap" id="peers-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div id="status-dot" class="status-dot disconnected"></div>
+    <span id="status-text">Desconectado</span>
+    <span class="status-sep">·</span>
+    <span id="status-peers">0 peers</span>
+    <span class="status-sep">·</span>
+    <span id="word-count" class="word-count">0 palabras</span>
+    <div class="status-right">
+      <span id="status-save" style="color:var(--txt3);">Guardado local</span>
+      <span class="status-sep">·</span>
+      <span id="status-hash" class="status-hash"></span>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "yjs": "https://esm.sh/yjs@13.6.18?bundle",
+    "y-webrtc": "https://esm.sh/y-webrtc@10.3.0?bundle",
+    "y-indexeddb": "https://esm.sh/y-indexeddb@9.0.12?bundle"
+  }
+}
+</script>
+
+<script type="module">
+let Y, WebrtcProvider, IndexeddbPersistence;
+
+async function loadYjs() {
+  try {
+    Y = await import('yjs')
+    const webrtcMod = await import('y-webrtc')
+    WebrtcProvider = webrtcMod.WebrtcProvider
+    const idbMod = await import('y-indexeddb')
+    IndexeddbPersistence = idbMod.IndexeddbPersistence
+    return true
+  } catch(e) {
+    console.error('Error cargando librerías colaborativas:', e)
+    return false
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CONSTANTS & STATE
+════════════════════════════════════════════════ */
+const PEER_COLORS = ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#34d399','#fb923c','#e879f9']
+const SIGNALING_SERVERS = ['wss://signaling.yjs.dev','wss://y-webrtc-eu.fly.dev','wss://y-webrtc-us.fly.dev']
+const DEFAULT_DOC = `# Nuevo documento científico
+
+Bienvenido a **LabColab** — editor colaborativo descentralizado. Comparte el código de sala con tus colaboradores.
+
+## Cómo usar
+
+- Escribe en **Markdown** con soporte para tablas, código y listas
+- Ecuaciones inline con dólar simple: $E = mc^2$
+- Ecuaciones en bloque con doble dólar:
+
+$$\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}$$
+
+- Activa la **Pizarra** (tab superior) para diagramas y esquemas
+- El **Chat** permite comunicación en tiempo real
+
+## Tabla de ejemplo
+
+| Parámetro | Símbolo | Valor |
+|:---|:---:|---:|
+| Constante de Planck | $h$ | $6.626 \\times 10^{-34}$ J·s |
+| Velocidad de la luz | $c$ | $2.998 \\times 10^8$ m/s |
+| Constante de Boltzmann | $k_B$ | $1.380 \\times 10^{-23}$ J/K |
+
+## Referencias
+
+1. Einstein, A. (1905). *Zur Elektrodynamik bewegter Körper*. Annalen der Physik.
+2. Maxwell, J.C. (1865). *A Dynamical Theory of the Electromagnetic Field*.
+`
+
+const S = {
+  peerId: null, name: 'Anónimo', role: 'observer', roomId: null,
+  connected: false, leftPanel: 'editor-view', rightPanel: 'preview-view',
+  boardTool: 'pen', boardColor: '#4ade80', boardWidth: 2,
+  drawing: false, activeStroke: null, strokes: [], unread: 0,
+}
+
+/* ═══════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id)
+const rand = (n=16) => Math.random().toString(36).slice(2, 2+n).toUpperCase()
+const genId = () => rand(8) + '-' + rand(4) + '-' + rand(4)
+const genRoom = () => rand(3) + rand(3)
+const peerColor = peerId => PEER_COLORS[Math.abs(hashStr(peerId)) % PEER_COLORS.length]
+const hashStr = s => s.split('').reduce((h,c) => (Math.imul(31,h)+c.charCodeAt(0))|0, 0)
+const initials = name => name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '??'
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v))
+const debounce = (fn, delay) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); }; }
+
+function applyDiff(yt, oldStr, newStr, doc) {
+  let i=0, j=oldStr.length, k=newStr.length
+  while (i<j && i<k && oldStr[i]===newStr[i]) i++
+  while (j>i && k>i && oldStr[j-1]===newStr[k-1]) { j--; k-- }
+  doc.transact(() => {
+    if (j>i) yt.delete(i, j-i)
+    if (k>i) yt.insert(i, newStr.slice(i,k))
+  }, 'local')
+}
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+
+function toast(msg, dur=2800) {
+  const el = $('toast')
+  el.textContent = msg
+  el.classList.add('show')
+  setTimeout(() => el.classList.remove('show'), dur)
+}
+
+function download(filename, content, mime='text/plain') {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([content], {type: mime}))
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+/* ═══════════════════════════════════════════════
+   YJS CORE
+════════════════════════════════════════════════ */
+let ydoc, yText, yStrokes, yChat, ySession, yMeta
+let provider, awareness, idb, undoManager
+let isLocalEdit = false, lastEditorValue = ''
+
+async function initYjs(roomId, password, isHost) {
+  const loaded = await loadYjs()
+  if (!loaded) {
+    toast('Error: no se pudieron cargar las librerías de red. Modo local activo.')
+    $('status-dot').className = 'status-dot disconnected'
+    $('status-text').textContent = 'Sin conexión'
+    return
+  }
+  ydoc = new Y.Doc()
+  yText    = ydoc.getText('editor')
+  yStrokes = ydoc.getArray('strokes')
+  yChat    = ydoc.getArray('chat')
+  ySession = ydoc.getMap('session')
+  yMeta    = ydoc.getMap('meta')
+
+  const roomKey = `labcolab-${roomId}`
+
+  // IndexedDB persistence
+  idb = new IndexeddbPersistence(roomKey, ydoc)
+  idb.on('synced', () => {
+    if (isHost && yText.length === 0) {
+      ydoc.transact(() => yText.insert(0, DEFAULT_DOC), 'init')
+    }
+    lastEditorValue = yText.toString()
+    const ta = $('editor-textarea')
+    ta.value = lastEditorValue
+    updatePreview()
+    updateWordCount()
+    computeAndShowHash()
+  })
+
+  // WebRTC provider
+  try {
+    provider = new WebrtcProvider(roomKey, ydoc, {
+      signaling: SIGNALING_SERVERS,
+      password: password || undefined,
+      maxConns: 20,
+      filterBcConns: true,
+    })
+    awareness = provider.awareness
+
+    S.peerId = ydoc.clientID.toString()
+
+    awareness.setLocalState({
+      name: S.name, role: S.role,
+      color: peerColor(S.peerId),
+      cursor: null, boardStroke: null
+    })
+
+    provider.on('synced', () => {
+      $('status-dot').className = 'status-dot connected'
+      $('status-text').textContent = 'Conectado'
+      S.connected = true
+    })
+
+    provider.on('peers', () => updatePeersUI())
+
+    awareness.on('change', () => {
+      updatePeersUI()
+      updatePeersBar()
+      renderBoardAwareness()
+    })
+  } catch(e) {
+    console.warn('WebRTC no disponible:', e)
+    toast('Modo local: WebRTC no disponible en este contexto')
+    $('status-dot').className = 'status-dot disconnected'
+    $('status-text').textContent = 'Local only'
+  }
+
+  // Undo manager
+  undoManager = new Y.UndoManager(yText, { captureTimeout: 500 })
+
+  // Editor sync
+  setupEditorSync()
+  // Chat sync
+  setupChatSync()
+  // Board sync
+  setupBoardSync()
+  // Session metadata
+  if (isHost) {
+    ySession.set('host', S.peerId)
+    ySession.set('hostName', S.name)
+    ySession.set('created', Date.now())
+    yMeta.set('title', 'Nuevo documento')
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   EDITOR MODULE
+════════════════════════════════════════════════ */
+function setupEditorSync() {
+  const ta = $('editor-textarea')
+
+  // Y.Text → textarea (remote changes)
+  yText.observe(event => {
+    if (isLocalEdit) return
+    const newVal = yText.toString()
+    if (ta.value === newVal) return
+    const ss = ta.selectionStart, se = ta.selectionEnd
+    ta.value = newVal
+    lastEditorValue = newVal
+    ta.setSelectionRange(clamp(ss,0,newVal.length), clamp(se,0,newVal.length))
+    updatePreview()
+    updateWordCount()
+    debouncedHash()
+  })
+
+  // textarea → Y.Text (local changes)
+  ta.addEventListener('input', () => {
+    const newVal = ta.value
+    isLocalEdit = true
+    applyDiff(yText, lastEditorValue, newVal, ydoc)
+    isLocalEdit = false
+    lastEditorValue = newVal
+    updatePreview()
+    updateWordCount()
+    debouncedSave()
+    debouncedHash()
+    broadcastCursor()
+  })
+
+  ta.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key==='z' && !e.shiftKey) { e.preventDefault(); undoManager.undo() }
+      if ((e.key==='y') || (e.key==='z' && e.shiftKey)) { e.preventDefault(); undoManager.redo() }
+      if (e.key==='b') { e.preventDefault(); wrapSelection('**', '**') }
+      if (e.key==='i') { e.preventDefault(); wrapSelection('*', '*') }
+      if (e.key==='k') { e.preventDefault(); wrapSelection('$', '$') }
+      if (e.key==='s') { e.preventDefault(); toast('✓ Guardado localmente') }
+    }
+    if (e.key==='Tab') {
+      e.preventDefault()
+      const s=ta.selectionStart, v=ta.value
+      ta.value = v.slice(0,s)+'  '+v.slice(ta.selectionEnd)
+      ta.selectionStart = ta.selectionEnd = s+2
+      ta.dispatchEvent(new Event('input'))
+    }
+  })
+
+  ta.addEventListener('keyup', broadcastCursor)
+  ta.addEventListener('click', broadcastCursor)
+  ta.addEventListener('select', broadcastCursor)
+}
+
+function wrapSelection(before, after) {
+  const ta = $('editor-textarea')
+  const s = ta.selectionStart, e = ta.selectionEnd
+  const selected = ta.value.slice(s, e) || 'texto'
+  const newText = before + selected + after
+  ta.value = ta.value.slice(0,s) + newText + ta.value.slice(e)
+  ta.selectionStart = s + before.length
+  ta.selectionEnd = s + before.length + selected.length
+  ta.dispatchEvent(new Event('input'))
+}
+
+function insertAtCursor(text) {
+  const ta = $('editor-textarea')
+  const s = ta.selectionStart
+  ta.value = ta.value.slice(0,s) + text + ta.value.slice(ta.selectionEnd)
+  ta.selectionStart = ta.selectionEnd = s + text.length
+  ta.dispatchEvent(new Event('input'))
+  ta.focus()
+}
+
+function broadcastCursor() {
+  if (!awareness) return
+  const ta = $('editor-textarea')
+  awareness.setLocalStateField('cursor', { pos: ta.selectionStart, name: S.name })
+}
+
+const debouncedSave = debounce(() => {
+  $('status-save').textContent = '✓ Guardado'
+  setTimeout(() => { $('status-save').textContent = 'Guardado local' }, 2000)
+}, 3000)
+
+const debouncedHash = debounce(computeAndShowHash, 2000)
+
+async function computeAndShowHash() {
+  const content = yText ? yText.toString() : ''
+  const h = await sha256(content)
+  $('status-hash').textContent = 'SHA-256: ' + h.slice(0,16) + '...'
+  return h
+}
+
+function updateWordCount() {
+  const text = ($('editor-textarea').value || '').replace(/[#*_`$\[\]]/g,'').trim()
+  const words = text ? text.split(/\s+/).length : 0
+  $('word-count').textContent = words + ' palabras'
+}
+
+/* ═══════════════════════════════════════════════
+   PREVIEW MODULE
+════════════════════════════════════════════════ */
+marked.setOptions({ breaks: true, gfm: true })
+
+function renderMarkdownWithKaTeX(md) {
+  const mathBlocks = []
+
+  // Extract display math $$...$$
+  let s = md.replace(/\$\$([\s\S]+?)\$\$/g, (_, latex) => {
+    const id = `__MATH_D_${mathBlocks.length}__`
+    mathBlocks.push({ id, latex, display: true })
+    return `\n\n${id}\n\n`
+  })
+
+  // Extract inline math $...$
+  s = s.replace(/(?<![\\$])\$([^$\n]+?)\$/g, (_, latex) => {
+    const id = `__MATH_I_${mathBlocks.length}__`
+    mathBlocks.push({ id, latex, display: false })
+    return id
+  })
+
+  // Render markdown
+  let html = marked.parse(s)
+
+  // Restore math
+  mathBlocks.forEach(({ id, latex, display }) => {
+    try {
+      const rendered = katex.renderToString(latex.trim(), {
+        displayMode: display, throwOnError: false, strict: false
+      })
+      html = html.split(id).join(display ? `<div class="katex-display">${rendered}</div>` : rendered)
+    } catch(e) {
+      html = html.split(id).join(`<span class="math-error">[Error: ${latex}]</span>`)
+    }
+  })
+
+  return html
+}
+
+function updatePreview() {
+  const md = $('editor-textarea').value
+  if (!md.trim()) {
+    $('preview-content').innerHTML = '<p class="preview-empty">La vista previa aparecerá mientras escribes...</p>'
+    return
+  }
+  $('preview-content').innerHTML = renderMarkdownWithKaTeX(md)
+}
+
+/* ═══════════════════════════════════════════════
+   WHITEBOARD MODULE
+════════════════════════════════════════════════ */
+let canvas, ctx, dpr = 1
+let awarenessStrokes = {}
+let boardInitialized = false
+
+function initBoard() {
+  if (boardInitialized) { if(canvas) resizeCanvas(); return }
+  boardInitialized = true
+  canvas = $('board-canvas')
+  ctx = canvas.getContext('2d')
+  resizeCanvas()
+  new ResizeObserver(resizeCanvas).observe($('board-wrap'))
+
+  // Mouse events
+  canvas.addEventListener('mousedown', onBoardStart)
+  canvas.addEventListener('mousemove', onBoardMove)
+  canvas.addEventListener('mouseup',   onBoardEnd)
+  canvas.addEventListener('mouseleave',onBoardEnd)
+  // Touch events
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); onBoardStart(e.touches[0]) }, {passive:false})
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); onBoardMove(e.touches[0]) },  {passive:false})
+  canvas.addEventListener('touchend',   e => { e.preventDefault(); onBoardEnd() },                 {passive:false})
+
+  // Text input
+  $('board-text-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') commitTextTool()
+    if (e.key === 'Escape') { $('board-text-input').style.display='none' }
+  })
+}
+
+function resizeCanvas() {
+  dpr = window.devicePixelRatio || 1
+  const wrap = $('board-wrap')
+  const w = wrap.offsetWidth, h = wrap.offsetHeight
+  canvas.width = w * dpr
+  canvas.height = h * dpr
+  canvas.style.width = w + 'px'
+  canvas.style.height = h + 'px'
+  ctx.scale(dpr, dpr)
+  redrawBoard()
+}
+
+function getBoardPos(e) {
+  const r = canvas.getBoundingClientRect()
+  return { x: (e.clientX - r.left), y: (e.clientY - r.top) }
+}
+
+function onBoardStart(e) {
+  if (S.role === 'observer') return
+  const {x, y} = getBoardPos(e)
+
+  if (S.boardTool === 'text') {
+    const inp = $('board-text-input')
+    inp.style.display = 'block'
+    inp.style.left = x + 'px'
+    inp.style.top = (y-18) + 'px'
+    inp.dataset.x = x; inp.dataset.y = y
+    inp.value = ''
+    inp.focus()
+    return
+  }
+
+  S.drawing = true
+  S.activeStroke = {
+    id: genId(), tool: S.boardTool,
+    color: S.boardTool === 'eraser' ? '#0d0e12' : S.boardColor,
+    width: S.boardTool === 'eraser' ? S.boardWidth * 5 : S.boardWidth,
+    peerId: S.peerId, peerName: S.name,
+    ts: Date.now(),
+    points: [[x, y]], x1:x, y1:y, x2:x, y2:y
+  }
+}
+
+function onBoardMove(e) {
+  if (!S.drawing || !S.activeStroke) return
+  const {x, y} = getBoardPos(e)
+  const s = S.activeStroke
+  s.x2 = x; s.y2 = y
+  if (s.tool === 'pen' || s.tool === 'eraser') s.points.push([x, y])
+
+  // Broadcast in-progress stroke via awareness
+  if (awareness) awareness.setLocalStateField('boardStroke', {...s})
+  scheduleRedraw()
+}
+
+function onBoardEnd() {
+  if (!S.drawing || !S.activeStroke) return
+  S.drawing = false
+  const s = S.activeStroke
+  S.activeStroke = null
+
+  // Skip tiny strokes
+  if ((s.tool==='pen'||s.tool==='eraser') && s.points.length < 2) return
+  if ((s.tool!=='pen'&&s.tool!=='eraser') && Math.abs(s.x2-s.x1)<4 && Math.abs(s.y2-s.y1)<4) return
+
+  yStrokes.push([s])
+  if (awareness) awareness.setLocalStateField('boardStroke', null)
+}
+
+function commitTextTool() {
+  const inp = $('board-text-input')
+  const text = inp.value.trim()
+  inp.style.display = 'none'
+  if (!text) return
+  const s = {
+    id: genId(), tool: 'text',
+    color: S.boardColor, fontSize: 16, text,
+    x1: parseFloat(inp.dataset.x), y1: parseFloat(inp.dataset.y),
+    peerId: S.peerId, peerName: S.name, ts: Date.now()
+  }
+  yStrokes.push([s])
+}
+
+function setupBoardSync() {
+  yStrokes.observe(() => {
+    S.strokes = yStrokes.toArray()
+    scheduleRedraw()
+  })
+}
+
+let rafId = null
+function scheduleRedraw() {
+  if (!rafId) rafId = requestAnimationFrame(() => { rafId = null; redrawBoard() })
+}
+
+function renderBoardAwareness() {
+  if (!awareness) return
+  const states = awareness.getStates()
+  awarenessStrokes = {}
+  states.forEach((state, clientId) => {
+    if (clientId.toString() !== S.peerId && state.boardStroke) {
+      awarenessStrokes[clientId] = state.boardStroke
+    }
+  })
+  scheduleRedraw()
+}
+
+function redrawBoard() {
+  if (!ctx) return
+  const w = canvas.width / dpr, h = canvas.height / dpr
+
+  // Background
+  ctx.fillStyle = '#0d0e12'
+  ctx.fillRect(0, 0, w, h)
+
+  // Dot grid
+  ctx.fillStyle = '#1a1c24'
+  for (let x=20; x<w; x+=20)
+    for (let y=20; y<h; y+=20) {
+      ctx.beginPath(); ctx.arc(x,y,0.7,0,Math.PI*2); ctx.fill()
+    }
+
+  // Committed strokes
+  S.strokes.forEach(s => drawStroke(s))
+
+  // Awareness strokes (other peers drawing)
+  Object.values(awarenessStrokes).forEach(s => {
+    if (s) { ctx.globalAlpha = 0.65; drawStroke(s); ctx.globalAlpha = 1 }
+  })
+
+  // Local active stroke
+  if (S.activeStroke) drawStroke(S.activeStroke)
+}
+
+function drawStroke(s) {
+  ctx.save()
+  ctx.strokeStyle = s.color || '#4ade80'
+  ctx.fillStyle = s.color || '#4ade80'
+  ctx.lineWidth = s.width || 2
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  switch(s.tool) {
+    case 'pen': case 'eraser': drawPen(s.points); break
+    case 'line': drawLine(s.x1,s.y1,s.x2,s.y2); break
+    case 'rect': drawRect(s.x1,s.y1,s.x2,s.y2); break
+    case 'circle': drawCircle(s.x1,s.y1,s.x2,s.y2); break
+    case 'arrow': drawArrow(s.x1,s.y1,s.x2,s.y2,s.width); break
+    case 'text':
+      ctx.font = `${s.fontSize||16}px 'Familjen Grotesk',sans-serif`
+      ctx.fillText(s.text, s.x1, s.y1); break
+  }
+  ctx.restore()
+}
+
+function drawPen(pts) {
+  if (!pts || pts.length < 2) return
+  ctx.beginPath()
+  ctx.moveTo(pts[0][0], pts[0][1])
+  for (let i=1; i<pts.length-1; i++) {
+    const mx = (pts[i][0]+pts[i+1][0])/2, my = (pts[i][1]+pts[i+1][1])/2
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my)
+  }
+  ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1])
+  ctx.stroke()
+}
+function drawLine(x1,y1,x2,y2) {
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
+}
+function drawRect(x1,y1,x2,y2) {
+  ctx.strokeRect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1))
+}
+function drawCircle(x1,y1,x2,y2) {
+  const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2
+  ctx.beginPath(); ctx.ellipse(cx,cy,Math.max(rx,1),Math.max(ry,1),0,0,Math.PI*2); ctx.stroke()
+}
+function drawArrow(x1,y1,x2,y2,w=2) {
+  drawLine(x1,y1,x2,y2)
+  const angle = Math.atan2(y2-y1, x2-x1), size = Math.max(10, (w||2)*4)
+  ctx.beginPath()
+  ctx.moveTo(x2, y2)
+  ctx.lineTo(x2-size*Math.cos(angle-Math.PI/6), y2-size*Math.sin(angle-Math.PI/6))
+  ctx.lineTo(x2-size*Math.cos(angle+Math.PI/6), y2-size*Math.sin(angle+Math.PI/6))
+  ctx.closePath(); ctx.fill()
+}
+
+/* ═══════════════════════════════════════════════
+   CHAT MODULE
+════════════════════════════════════════════════ */
+let chatCount = 0
+
+function setupChatSync() {
+  yChat.observe(event => {
+    event.changes.delta.forEach(op => {
+      if (op.insert) op.insert.forEach(msg => renderChatMsg(msg))
+    })
+  })
+}
+
+function sendChat() {
+  const inp = $('chat-input')
+  const text = inp.value.trim()
+  if (!text) return
+  const msg = {
+    id: genId(), peerId: S.peerId, name: S.name,
+    color: peerColor(S.peerId), text, ts: Date.now()
+  }
+  yChat.push([msg])
+  inp.value = ''
+
+  // Awareness: stop typing
+  if (awareness) awareness.setLocalStateField('typing', false)
+}
+
+function renderChatMsg(msg) {
+  const container = $('chat-messages')
+  const isOwn = msg.peerId === S.peerId
+  const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40
+
+  if (msg.type === 'system') {
+    const el = document.createElement('div')
+    el.className = 'chat-sys'
+    el.textContent = msg.text
+    container.appendChild(el)
+  } else {
+    const div = document.createElement('div')
+    div.className = 'chat-msg' + (isOwn ? ' own' : '')
+    const time = new Date(msg.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+    div.innerHTML = `
+      <div class="msg-meta">
+        <span class="msg-author" style="color:${msg.color||'var(--accent)'}">${escHtml(msg.name||'?')}</span>
+        <span>${time}</span>
+      </div>
+      <div class="msg-bubble">${escHtml(msg.text)}</div>
+    `
+    container.appendChild(div)
+  }
+
+  if (atBottom) container.scrollTop = container.scrollHeight
+
+  // Unread badge when chat tab not active
+  if (S.rightPanel !== 'chat-view' && msg.peerId !== S.peerId) {
+    S.unread++
+    const badge = $('chat-badge')
+    badge.textContent = S.unread > 9 ? '9+' : S.unread
+    badge.classList.remove('hidden')
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+// Typing awareness
+let typingTimer = null
+$('chat-input').addEventListener('input', () => {
+  if (!awareness) return
+  awareness.setLocalStateField('typing', true)
+  clearTimeout(typingTimer)
+  typingTimer = setTimeout(() => {
+    if (awareness) awareness.setLocalStateField('typing', false)
+  }, 2000)
+})
+
+function updateTypingIndicator() {
+  if (!awareness) return
+  const typing = []
+  awareness.getStates().forEach((state, id) => {
+    if (id.toString() !== S.peerId && state.typing && state.name)
+      typing.push(state.name.split(' ')[0])
+  })
+  const el = $('typing-indicator')
+  el.textContent = typing.length ? `${typing.slice(0,2).join(', ')} está escribiendo...` : ''
+}
+
+/* ═══════════════════════════════════════════════
+   PEERS & ROLES MODULE
+════════════════════════════════════════════════ */
+function updatePeersUI() {
+  if (!awareness) return
+  const states = awareness.getStates()
+  const list = $('peers-list')
+  list.innerHTML = ''
+  let count = 0
+
+  states.forEach((state, clientId) => {
+    if (!state || !state.name) return
+    count++
+    const cid = clientId.toString()
+    const isMe = cid === ydoc.clientID.toString()
+    const color = state.color || peerColor(cid)
+    const role = state.role || 'editor'
+
+    const div = document.createElement('div')
+    div.className = 'peer-item'
+    div.innerHTML = `
+      <div class="peer-dot" style="background:${color}"></div>
+      <div class="peer-info">
+        <div class="peer-name">${escHtml(state.name)}${isMe ? ' <span style="color:var(--txt3);font-size:11px;">(tú)</span>' : ''}</div>
+        <div class="peer-status">${role} · ${isMe ? 'local' : 'remoto'}</div>
+      </div>
+      ${S.role === 'host' && !isMe ? `
+        <div class="peer-actions">
+          <button class="peer-action-btn" onclick="setRole(${clientId}, 'editor')">Editor</button>
+          <button class="peer-action-btn" onclick="setRole(${clientId}, 'observer')">Obs.</button>
+        </div>` : ''}
+    `
+    list.appendChild(div)
+  })
+
+  $('status-peers').textContent = count + (count === 1 ? ' peer' : ' peers')
+  updateTypingIndicator()
+}
+
+window.setRole = function(clientId, role) {
+  if (!awareness || S.role !== 'host') return
+  const signals = ySession.get('roleSignals') || {}
+  signals[clientId.toString()] = { role, ts: Date.now() }
+  ySession.set('roleSignals', {...signals})
+  toast('Rol asignado: ' + role)
+}
+
+function updatePeersBar() {
+  if (!awareness) return
+  const bar = $('peers-bar')
+  bar.innerHTML = ''
+  const states = awareness.getStates()
+  let i = 0
+  states.forEach((state, clientId) => {
+    if (!state.name || i >= 6) return
+    i++
+    const color = state.color || peerColor(clientId.toString())
+    const el = document.createElement('div')
+    el.className = 'peer-avatar'
+    el.style.background = color
+    el.style.color = '#0d0e12'
+    el.textContent = initials(state.name)
+    el.title = state.name + (clientId.toString() === S.peerId ? ' (tú)' : '')
+    bar.appendChild(el)
+  })
+}
+
+// Watch for role signals
+function watchRoleSignals() {
+  if (!ySession) return
+  ySession.observe(event => {
+    if (!event.keysChanged.has('roleSignals')) return
+    const signals = ySession.get('roleSignals') || {}
+    const myId = ydoc.clientID.toString()
+    const mySignal = signals[myId]
+    if (mySignal && mySignal.ts > (S._lastRoleTs || 0)) {
+      S._lastRoleTs = mySignal.ts
+      S.role = mySignal.role
+      updateRoleUI()
+      if (awareness) awareness.setLocalStateField('role', S.role)
+      toast('Tu rol cambió a: ' + S.role)
+    }
+  })
+}
+
+function updateRoleUI() {
+  const chip = $('role-chip')
+  chip.className = 'role-chip role-' + S.role
+  chip.textContent = S.role
+  const ta = $('editor-textarea')
+  ta.readOnly = (S.role === 'observer')
+  if (S.role === 'observer') ta.style.opacity = '0.6'
+  else ta.style.opacity = '1'
+}
+
+/* ═══════════════════════════════════════════════
+   EXPORT MODULE
+════════════════════════════════════════════════ */
+async function openExportModal() {
+  const h = await computeAndShowHash()
+  $('doc-hash').textContent = h
+  $('export-modal').classList.add('active')
+}
+
+$('close-export').addEventListener('click', () => {
+  $('export-modal').classList.remove('active')
+})
+$('export-modal').addEventListener('click', e => {
+  if (e.target === $('export-modal')) $('export-modal').classList.remove('active')
+})
+
+$('exp-md').addEventListener('click', () => {
+  const content = yText ? yText.toString() : ''
+  const roomId = S.roomId || 'doc'
+  download(`labcolab-${roomId}-${Date.now()}.md`, content, 'text/markdown')
+  toast('Markdown descargado')
+})
+
+$('exp-html').addEventListener('click', async () => {
+  const content = $('preview-content').innerHTML
+  const h = await computeAndShowHash()
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<title>LabColab Export</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:0 24px;line-height:1.7;color:#222;}
+h1,h2,h3{margin-top:1.5em;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ccc;padding:8px 12px;}
+pre{background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto;}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid #ccc;font-size:11px;color:#888;}
+</style></head>
+<body>${content}
+<footer>Sala: ${S.roomId} · Exportado: ${new Date().toISOString()} · SHA-256: ${h}</footer>
+</body></html>`
+  download(`labcolab-${S.roomId || 'doc'}.html`, html, 'text/html')
+  toast('HTML descargado')
+})
+
+$('exp-print').addEventListener('click', () => {
+  window.print()
+})
+
+/* ═══════════════════════════════════════════════
+   UI EVENT HANDLERS
+════════════════════════════════════════════════ */
+// Modal tabs
+$('tab-btn-create').addEventListener('click', () => {
+  $('tab-btn-create').classList.add('active')
+  $('tab-btn-join').classList.remove('active')
+  $('tab-create').classList.add('active')
+  $('tab-join').classList.remove('active')
+})
+$('tab-btn-join').addEventListener('click', () => {
+  $('tab-btn-join').classList.add('active')
+  $('tab-btn-create').classList.remove('active')
+  $('tab-join').classList.add('active')
+  $('tab-create').classList.remove('active')
+})
+
+// Create room
+$('btn-create').addEventListener('click', () => {
+  const name = $('create-name').value.trim() || 'Investigador'
+  const pass = $('create-pass').value
+  const roomId = genRoom()
+  S.name = name
+  S.role = 'host'
+  S.roomId = roomId
+  startSession(roomId, pass, true)
+})
+
+// Join room
+$('btn-join').addEventListener('click', () => {
+  const name = $('join-name').value.trim() || 'Investigador'
+  let roomId = $('join-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')
+  const pass = $('join-pass').value
+  if (!roomId) { toast('Ingresa un código de sala'); return }
+  S.name = name
+  S.role = 'editor'
+  S.roomId = roomId
+  startSession(roomId, pass, false)
+})
+
+// Enter key in modals
+['create-name','create-pass'].forEach(id => {
+  $(id).addEventListener('keydown', e => { if(e.key==='Enter') $('btn-create').click() })
+})
+['join-name','join-room','join-pass'].forEach(id => {
+  $(id).addEventListener('keydown', e => { if(e.key==='Enter') $('btn-join').click() })
+})
+
+// Copy room code
+$('btn-copy-room').addEventListener('click', () => {
+  const url = location.origin + location.pathname + '?room=' + S.roomId
+  navigator.clipboard.writeText(url).then(() => toast('Enlace copiado al portapapeles')).catch(() => {
+    navigator.clipboard.writeText(S.roomId).then(() => toast('Código copiado: ' + S.roomId))
+  })
+})
+
+// Export open
+$('btn-export-open').addEventListener('click', openExportModal)
+
+// Panel tabs
+document.querySelectorAll('[data-panel]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.panel
+    const group = btn.closest('.panel-tabs')
+    group.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+
+    // Determine which side
+    const isLeft = group.closest('#panel-left') !== null
+    if (isLeft) {
+      S.leftPanel = target
+      document.querySelectorAll('#panel-left .view-content').forEach(v => v.classList.add('hidden'))
+      $(target).classList.remove('hidden')
+      // Toggle toolbars
+      $('editor-toolbar').classList.toggle('hidden', target !== 'editor-view')
+      $('board-toolbar').classList.toggle('hidden', target !== 'board-view')
+      if (target === 'board-view') {
+        initBoard()
+        canvas.style.cursor = S.boardTool === 'text' ? 'text' : 'crosshair'
+      }
+    } else {
+      S.rightPanel = target
+      document.querySelectorAll('#panel-right .view-content').forEach(v => v.classList.add('hidden'))
+      $(target).classList.remove('hidden')
+      if (target === 'chat-view') {
+        S.unread = 0
+        $('chat-badge').classList.add('hidden')
+        $('chat-messages').scrollTop = $('chat-messages').scrollHeight
+        $('chat-input').focus()
+      }
+    }
+  })
+})
+
+// Board tools
+document.querySelectorAll('[data-btool]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-btool]').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    S.boardTool = btn.dataset.btool
+    if (canvas) canvas.style.cursor = S.boardTool === 'text' ? 'text' : 'crosshair'
+  })
+})
+
+$('board-color').addEventListener('input', e => S.boardColor = e.target.value)
+$('board-width').addEventListener('input', e => S.boardWidth = +e.target.value)
+
+$('btn-clear-board').addEventListener('click', () => {
+  if (S.role === 'observer') { toast('Sin permisos para limpiar'); return }
+  if (!confirm('¿Limpiar toda la pizarra?')) return
+  ydoc.transact(() => yStrokes.delete(0, yStrokes.length))
+  S.strokes = []
+  scheduleRedraw()
+  toast('Pizarra limpiada')
+})
+
+// Editor toolbar
+document.querySelectorAll('[data-action]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (S.role === 'observer') return
+    const ta = $('editor-textarea')
+    ta.focus()
+    const action = btn.dataset.action
+    const actions = {
+      'bold':       () => wrapSelection('**','**'),
+      'italic':     () => wrapSelection('*','*'),
+      'code':       () => wrapSelection('`','`'),
+      'h1':         () => insertAtCursor('\n# '),
+      'h2':         () => insertAtCursor('\n## '),
+      'h3':         () => insertAtCursor('\n### '),
+      'math-inline':() => wrapSelection('$','$'),
+      'math-block': () => insertAtCursor('\n\n$$\n\n$$\n\n'),
+      'ul':         () => insertAtCursor('\n- '),
+      'hr':         () => insertAtCursor('\n---\n'),
+      'table':      () => insertAtCursor('\n| Columna 1 | Columna 2 | Columna 3 |\n|:---|:---:|---:|\n| Dato | Dato | Dato |\n'),
+    }
+    if (actions[action]) actions[action]()
+  })
+})
+
+// Chat send
+$('btn-send').addEventListener('click', sendChat)
+$('chat-input').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendChat() }})
+
+// Resize handle
+let resizing = false, resizeStartX = 0, resizeStartW = 0
+$('resize-handle').addEventListener('mousedown', e => {
+  resizing = true
+  resizeStartX = e.clientX
+  resizeStartW = $('panel-left').offsetWidth
+  $('resize-handle').classList.add('dragging')
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+})
+document.addEventListener('mousemove', e => {
+  if (!resizing) return
+  const newW = clamp(resizeStartW + (e.clientX - resizeStartX), 280, window.innerWidth - 280)
+  $('panel-left').style.width = newW + 'px'
+})
+document.addEventListener('mouseup', () => {
+  resizing = false
+  $('resize-handle').classList.remove('dragging')
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  if (S.leftPanel === 'board-view') resizeCanvas()
+})
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.altKey && e.key === 'b') { document.querySelector('[data-panel="board-view"]').click() }
+  if (e.altKey && e.key === 'e') { document.querySelector('[data-panel="editor-view"]').click() }
+  if (e.altKey && e.key === 'c') { document.querySelector('[data-panel="chat-view"]').click() }
+})
+
+/* ═══════════════════════════════════════════════
+   SESSION STARTUP
+════════════════════════════════════════════════ */
+async function startSession(roomId, password, isHost) {
+  $('modal-overlay').classList.remove('active')
+
+  const app = $('app')
+  app.style.display = 'flex'
+  setTimeout(() => app.classList.add('visible'), 50)
+
+  $('room-code-display').textContent = roomId
+  $('status-dot').className = 'status-dot connecting'
+  $('status-text').textContent = 'Conectando...'
+
+  // Update URL
+  const url = new URL(location.href)
+  url.searchParams.set('room', roomId)
+  history.pushState({}, '', url)
+
+  await initYjs(roomId, password, isHost)
+  updateRoleUI()
+  watchRoleSignals()
+  initBoard()
+
+  // Update peers bar after awareness is initialized
+  setTimeout(() => { updatePeersUI(); updatePeersBar() }, 300)
+
+  // System message
+  setTimeout(() => {
+    const msg = { type:'system', text: `Sala ${roomId} — ${isHost ? 'creada' : 'unido'} como ${S.name}`, ts: Date.now() }
+    const container = $('chat-messages')
+    const el = document.createElement('div')
+    el.className = 'chat-sys'
+    el.textContent = msg.text
+    container.appendChild(el)
+
+    toast(isHost ? `Sala ${roomId} creada ✓` : `Unido a sala ${roomId} ✓`)
+  }, 500)
+
+  // Self in peers
+  updatePeersBar()
+}
+
+/* ═══════════════════════════════════════════════
+   URL PARAM AUTO-FILL
+════════════════════════════════════════════════ */
+const urlRoom = new URLSearchParams(location.search).get('room')
+if (urlRoom) {
+  $('tab-btn-join').click()
+  $('join-room').value = urlRoom.toUpperCase()
+  $('join-name').focus()
+}
+
+/* ═══════════════════════════════════════════════
+   FOCUS MANAGEMENT
+════════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  if (!urlRoom) $('create-name').focus()
+})
+</script>
+</body>
+</html>

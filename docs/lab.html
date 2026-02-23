@@ -172,8 +172,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
 .lpill{display:flex;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--border);
   border-radius:100px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt2);}
 .ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-canvas#chart{display:block;width:100%;height:300px;border-radius:10px;}
-.chart-empty{height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--txt3);}
+canvas#chart{display:block;width:100%;height:420px;border-radius:10px;}
+.chart-empty{height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--txt3);}
 .chart-empty svg{opacity:.25;}
 .chart-empty p{font-family:'JetBrains Mono',monospace;font-size:12px;}
 
@@ -257,7 +257,7 @@ canvas#chart{display:block;width:100%;height:300px;border-radius:10px;}
   background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);
   border-radius:8px;padding:7px 13px;display:none;}
 .lagrange-eval-result.vis{display:block;}
-canvas#anlChart,canvas#lagChart{display:block;width:100%;height:220px;border-radius:10px;margin-top:4px;}
+canvas#anlChart,canvas#lagChart{display:block;width:100%;height:340px;border-radius:10px;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -895,7 +895,7 @@ function bindInteraction(cv,vpKey,onDraw,resetFn){
   let lastTouchDist=null; // for pinch
   let lastTouchMid=null;
   const DPR=()=>window.devicePixelRatio||1;
-  const P={t:22,r:22,b:46,l:56};
+  const P={t:24,r:24,b:54,l:72};
 
   function canvasXY(e){
     const r=cv.getBoundingClientRect();
@@ -990,45 +990,96 @@ function bindInteraction(cv,vpKey,onDraw,resetFn){
   },{passive:false});
 }
 
-/* Draw a nice grid with smart tick spacing */
-function drawGrid(ctx,vp,P,cw,ch,fmtX,fmtY){
+/* Draw grid + real axes with ticks, zero lines, and rotated axis labels */
+function drawGrid(ctx,vp,P,cw,ch,fmtX,fmtY,lblX='',lblY='VALOR'){
   const xRange=vp.xHi-vp.xLo,yRange=vp.yHi-vp.yLo;
+
   function niceStep(range,ticks){
     const raw=range/ticks;
-    const mag=Math.pow(10,Math.floor(Math.log10(raw)));
+    const mag=Math.pow(10,Math.floor(Math.log10(Math.abs(raw)||1)));
     const norm=raw/mag;
-    let step=norm<1.5?1:norm<3?2:norm<7?5:10;
+    const step=norm<1.5?1:norm<3?2:norm<7?5:10;
     return step*mag;
   }
-  const xStep=niceStep(xRange,6),yStep=niceStep(yRange,5);
+
+  const xStep=niceStep(xRange,7),yStep=niceStep(yRange,6);
   const sx=x=>P.l+(x-vp.xLo)/xRange*cw;
   const sy=y=>P.t+ch-(y-vp.yLo)/yRange*ch;
 
-  ctx.strokeStyle='#1e2130';ctx.lineWidth=1;
-  // X grid lines
+  // ── background grid lines ──
+  ctx.strokeStyle='rgba(30,33,48,0.9)';ctx.lineWidth=1;
   const x0=Math.ceil(vp.xLo/xStep)*xStep;
   for(let xv=x0;xv<=vp.xHi+xStep*0.01;xv+=xStep){
     const px=sx(xv);if(px<P.l-1||px>P.l+cw+1)continue;
     ctx.beginPath();ctx.moveTo(px,P.t);ctx.lineTo(px,P.t+ch);ctx.stroke();
   }
-  // Y grid lines
   const y0=Math.ceil(vp.yLo/yStep)*yStep;
   for(let yv=y0;yv<=vp.yHi+yStep*0.01;yv+=yStep){
     const py=sy(yv);if(py<P.t-1||py>P.t+ch+1)continue;
     ctx.beginPath();ctx.moveTo(P.l,py);ctx.lineTo(P.l+cw,py);ctx.stroke();
   }
-  // X labels
-  ctx.font=`10px 'JetBrains Mono',monospace`;ctx.fillStyle='#52566a';ctx.textAlign='center';
+
+  // ── zero lines (visible when in range) ──
+  if(vp.xLo<=0&&vp.xHi>=0){
+    const px=sx(0);
+    ctx.strokeStyle='rgba(82,86,106,0.55)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(px,P.t);ctx.lineTo(px,P.t+ch);ctx.stroke();
+  }
+  if(vp.yLo<=0&&vp.yHi>=0){
+    const py=sy(0);
+    ctx.strokeStyle='rgba(82,86,106,0.55)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(P.l,py);ctx.lineTo(P.l+cw,py);ctx.stroke();
+  }
+
+  // ── axis border lines ──
+  ctx.strokeStyle='#2a2d3a';ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(P.l,P.t);ctx.lineTo(P.l,P.t+ch);           // Y axis line
+  ctx.moveTo(P.l,P.t+ch);ctx.lineTo(P.l+cw,P.t+ch);     // X axis line
+  ctx.stroke();
+
+  // ── tick marks + labels (drawn OUTSIDE clip) ──
+  ctx.font=`10px 'JetBrains Mono',monospace`;ctx.fillStyle='#52566a';
+
+  // X ticks
+  ctx.textAlign='center';ctx.textBaseline='top';
   for(let xv=x0;xv<=vp.xHi+xStep*0.01;xv+=xStep){
     const px=sx(xv);if(px<P.l||px>P.l+cw)continue;
-    ctx.fillText(fmtX(xv),px,P.t+ch+16);
+    ctx.strokeStyle='#3a3e52';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(px,P.t+ch);ctx.lineTo(px,P.t+ch+5);ctx.stroke();
+    ctx.fillText(fmtX(xv),px,P.t+ch+8);
   }
-  // Y labels
-  ctx.textAlign='right';
+
+  // Y ticks
+  ctx.textAlign='right';ctx.textBaseline='middle';
   for(let yv=y0;yv<=vp.yHi+yStep*0.01;yv+=yStep){
     const py=sy(yv);if(py<P.t||py>P.t+ch)continue;
-    ctx.fillText(fmtY(yv),P.l-7,py+3.5);
+    ctx.strokeStyle='#3a3e52';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(P.l-5,py);ctx.lineTo(P.l,py);ctx.stroke();
+    ctx.fillText(fmtY(yv),P.l-9,py);
   }
+
+  // ── rotated Y axis label ──
+  if(lblY){
+    ctx.save();
+    ctx.translate(P.l-38,P.t+ch/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.font=`bold 10px 'JetBrains Mono',monospace`;
+    ctx.fillStyle='#52566a';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(lblY,0,0);
+    ctx.restore();
+  }
+
+  // ── X axis label ──
+  if(lblX){
+    ctx.font=`bold 10px 'JetBrains Mono',monospace`;
+    ctx.fillStyle='#52566a';
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.fillText(lblX,P.l+cw/2,P.t+ch+P.b-2);
+  }
+
+  ctx.textBaseline='alphabetic';
   return{sx,sy};
 }
 
@@ -1055,11 +1106,11 @@ function redraw(){
     leg.appendChild(p);
   });
 
-  const W=cv.parentElement.offsetWidth,H=300,DPR=window.devicePixelRatio||1;
+  const W=cv.parentElement.offsetWidth,H=420,DPR=window.devicePixelRatio||1;
   cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';
   const ctx=cv.getContext('2d');ctx.scale(DPR,DPR);
 
-  const P={t:22,r:22,b:46,l:56};
+  const P={t:24,r:24,b:54,l:72};
   const cw=W-P.l-P.r,ch=H-P.t-P.b;
 
   // Auto-fit viewport on first draw or after reset
@@ -1072,17 +1123,20 @@ function redraw(){
 
   ctx.fillStyle='#13141a';rRect(ctx,P.l,P.t,cw,ch,10);ctx.fill();
 
-  // clip to chart area
-  ctx.save();ctx.beginPath();ctx.rect(P.l,P.t,cw,ch);ctx.clip();
+  function fmtAx(v,range){
+    const d=Math.max(0,2-Math.floor(Math.log10(Math.abs(range)||1)));
+    return Number(v.toFixed(d)).toString();
+  }
 
+  // Draw grid + labels OUTSIDE clip
   const {sx,sy}=drawGrid(ctx,vp,P,cw,ch,
-    v=>Number(v.toFixed(Math.max(0,2-Math.floor(Math.log10(xRange||1))))).toString(),
-    v=>Number(v.toFixed(Math.max(0,2-Math.floor(Math.log10(yRange||1))))).toString()
+    v=>fmtAx(v,xRange),
+    v=>fmtAx(v,yRange),
+    'DATO','VALOR'
   );
 
-  ctx.save();ctx.translate(16,P.t+ch/2);ctx.rotate(-Math.PI/2);
-  ctx.fillStyle='#3a3e52';ctx.font=`10px 'JetBrains Mono',monospace`;ctx.textAlign='center';
-  ctx.fillText('VALOR',0,0);ctx.restore();
+  // clip to chart area for data rendering
+  ctx.save();ctx.beginPath();ctx.rect(P.l,P.t,cw,ch);ctx.clip();
 
   const ten=S.tension;
   S.series.forEach(s=>{
@@ -1392,11 +1446,11 @@ function runRegression(){
 function drawRegChart(pts,fn,color){
   const cv=document.getElementById('anlChart');
   if(!cv)return;
-  const W=cv.parentElement.offsetWidth,H=220,DPR=window.devicePixelRatio||1;
+  const W=cv.parentElement.offsetWidth,H=340,DPR=window.devicePixelRatio||1;
   cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';
   const ctx=cv.getContext('2d');ctx.scale(DPR,DPR);
 
-  const P={t:16,r:16,b:36,l:52};
+  const P={t:24,r:24,b:54,l:72};
   const cw=W-P.l-P.r,ch=H-P.t-P.b;
 
   // Auto-fit
@@ -1410,12 +1464,19 @@ function drawRegChart(pts,fn,color){
   const xRange=vp.xHi-vp.xLo,yRange=vp.yHi-vp.yLo;
 
   ctx.fillStyle='#13141a';rRect(ctx,P.l,P.t,cw,ch,8);ctx.fill();
-  ctx.save();ctx.beginPath();ctx.rect(P.l,P.t,cw,ch);ctx.clip();
+
+  function fmtAxR(v,range){
+    const d=Math.max(0,2-Math.floor(Math.log10(Math.abs(range)||1)));
+    return Number(v.toFixed(d)).toString();
+  }
 
   const {sx,sy}=drawGrid(ctx,vp,P,cw,ch,
-    v=>Number(v.toFixed(Math.max(0,2-Math.floor(Math.log10(xRange||1))))).toString(),
-    v=>Number(v.toFixed(Math.max(0,2-Math.floor(Math.log10(yRange||1))))).toString()
+    v=>fmtAxR(v,xRange),
+    v=>fmtAxR(v,yRange),
+    'DATO','VALOR'
   );
+
+  ctx.save();ctx.beginPath();ctx.rect(P.l,P.t,cw,ch);ctx.clip();
 
   // regression curve
   ctx.beginPath();ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.setLineDash([]);
@@ -1537,11 +1598,11 @@ function evalLagrange(){
 function drawLagrangeChart(pts,color,evalPt=null){
   const cv=document.getElementById('lagChart');
   if(!cv)return;
-  const W=cv.parentElement.offsetWidth,H=220,DPR=window.devicePixelRatio||1;
+  const W=cv.parentElement.offsetWidth,H=340,DPR=window.devicePixelRatio||1;
   cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';
   const ctx=cv.getContext('2d');ctx.scale(DPR,DPR);
 
-  const P={t:16,r:16,b:36,l:52};
+  const P={t:24,r:24,b:54,l:72};
   const cw=W-P.l-P.r,ch=H-P.t-P.b;
 
   // Auto-fit (include evalPt if present)
@@ -1560,12 +1621,19 @@ function drawLagrangeChart(pts,color,evalPt=null){
   const xRange=vp.xHi-vp.xLo,yRange=vp.yHi-vp.yLo;
 
   ctx.fillStyle='#13141a';rRect(ctx,P.l,P.t,cw,ch,8);ctx.fill();
-  ctx.save();ctx.beginPath();ctx.rect(P.l,P.t,cw,ch);ctx.clip();
+
+  function fmtAxL(v,range){
+    const d=Math.max(0,2-Math.floor(Math.log10(Math.abs(range)||1)));
+    return Number(v.toFixed(d)).toString();
+  }
 
   const {sx,sy}=drawGrid(ctx,vp,P,cw,ch,
-    v=>Number(v.toFixed(Math.max(0,2-Math.floor(Math.log10(xRange||1))))).toString(),
-    v=>Number(v.toFixed(Math.max(0,2-Math.floor(Math.log10(yRange||1))))).toString()
+    v=>fmtAxL(v,xRange),
+    v=>fmtAxL(v,yRange),
+    'DATO','P(x)'
   );
+
+  ctx.save();ctx.beginPath();ctx.rect(P.l,P.t,cw,ch);ctx.clip();
 
   // interpolation curve
   const steps=300;
