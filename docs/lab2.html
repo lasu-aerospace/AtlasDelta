@@ -92,6 +92,8 @@ input,textarea{font:inherit;color:inherit;}
 
 /* ── EDITOR TOOLBAR ── */
 .toolbar{display:flex;align-items:center;gap:2px;padding:0 4px;}
+/* Evitar que los botones del toolbar roben el foco del textarea */
+.tool-btn, .btool { user-select: none; }
 .tool-btn{background:none;border:1px solid transparent;border-radius:5px;padding:3px 7px;font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',monospace;transition:all .15s;}
 .tool-btn:hover{background:var(--s2);border-color:var(--border);color:var(--txt);}
 .tool-sep{width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0;}
@@ -314,20 +316,20 @@ input,textarea{font:inherit;color:inherit;}
         <div class="tab-spacer"></div>
         <!-- Editor toolbar (shown in editor mode) -->
         <div class="toolbar" id="editor-toolbar">
-          <button class="tool-btn" data-action="bold" title="Negrita Ctrl+B"><b>B</b></button>
-          <button class="tool-btn" data-action="italic" title="Cursiva Ctrl+I"><i>I</i></button>
-          <button class="tool-btn" data-action="code" title="Código">`</button>
+          <button class="tool-btn" data-action="bold" title="Negrita Ctrl+B" onmousedown="event.preventDefault()"><b>B</b></button>
+          <button class="tool-btn" data-action="italic" title="Cursiva Ctrl+I" onmousedown="event.preventDefault()"><i>I</i></button>
+          <button class="tool-btn" data-action="code" title="Código" onmousedown="event.preventDefault()">`</button>
           <div class="tool-sep"></div>
-          <button class="tool-btn" data-action="h1">H1</button>
-          <button class="tool-btn" data-action="h2">H2</button>
-          <button class="tool-btn" data-action="h3">H3</button>
+          <button class="tool-btn" data-action="h1" onmousedown="event.preventDefault()">H1</button>
+          <button class="tool-btn" data-action="h2" onmousedown="event.preventDefault()">H2</button>
+          <button class="tool-btn" data-action="h3" onmousedown="event.preventDefault()">H3</button>
           <div class="tool-sep"></div>
-          <button class="tool-btn" data-action="math-inline" title="Ecuación inline">$</button>
-          <button class="tool-btn" data-action="math-block" title="Ecuación bloque">$$</button>
+          <button class="tool-btn" data-action="math-inline" title="Ecuación inline" onmousedown="event.preventDefault()">$</button>
+          <button class="tool-btn" data-action="math-block" title="Ecuación bloque" onmousedown="event.preventDefault()">$$</button>
           <div class="tool-sep"></div>
-          <button class="tool-btn" data-action="table" title="Tabla">⊞</button>
-          <button class="tool-btn" data-action="ul" title="Lista">≡</button>
-          <button class="tool-btn" data-action="hr" title="Separador">—</button>
+          <button class="tool-btn" data-action="table" title="Tabla" onmousedown="event.preventDefault()">⊞</button>
+          <button class="tool-btn" data-action="ul" title="Lista" onmousedown="event.preventDefault()">≡</button>
+          <button class="tool-btn" data-action="hr" title="Separador" onmousedown="event.preventDefault()">—</button>
         </div>
         <!-- Board toolbar (shown in board mode) -->
         <div class="board-tools hidden" id="board-toolbar">
@@ -431,11 +433,12 @@ let Y, IndexeddbPersistence;
 
 async function loadYjs() {
   try {
-    const [yjsMod, idbMod] = await Promise.all([
-      import('https://esm.sh/yjs@13.6.18?bundle'),
-      import('https://esm.sh/y-indexeddb@9.0.12?bundle'),
-    ])
-    Y = yjsMod
+    // Cargar yjs primero, luego y-indexeddb indicándole que use la misma instancia
+    const yjsMod = await import('https://esm.sh/yjs@13.6.18?bundle')
+    // esm.sh bundle exporta las funciones como named exports en el módulo
+    Y = yjsMod.default ? { ...yjsMod.default, ...yjsMod } : yjsMod
+    // ?deps= hace que esm.sh resuelva yjs como peer dep en lugar de bundlearlo de nuevo
+    const idbMod = await import('https://esm.sh/y-indexeddb@9.0.12?deps=yjs@13.6.18&bundle')
     IndexeddbPersistence = idbMod.IndexeddbPersistence
     return true
   } catch(e) {
@@ -450,7 +453,7 @@ async function loadYjs() {
 const PEER_COLORS = ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#34d399','#fb923c','#e879f9']
 
 // ▼▼▼ CAMBIA ESTO con la URL de tu Cloudflare Worker después del deploy ▼▼▼
-const RELAY_URL = 'wss://labcolab-relay.ezesouto2.workers.dev'
+const RELAY_URL = 'wss://labcolab-relay.TU_USUARIO.workers.dev'
 // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 const DEFAULT_DOC = `# Nuevo documento científico
 
@@ -559,10 +562,13 @@ async function deriveKey(password, roomId) {
 }
 
 async function encryptMsg(data) {
-  if (!cryptoKey) return data
+  if (!cryptoKey) return data instanceof ArrayBuffer ? data : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, data)
-  // Formato: [12 bytes IV][ciphertext]
+  // Normalizar a ArrayBuffer limpio
+  const buf = data instanceof Uint8Array
+    ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+    : data
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, buf)
   const out = new Uint8Array(12 + ct.byteLength)
   out.set(iv, 0)
   out.set(new Uint8Array(ct), 12)
@@ -598,14 +604,15 @@ function connectRelay(roomId, password, onOpen) {
   relayWS.addEventListener('message', async (e) => {
     const raw = await decryptMsg(e.data)
     if (!raw) return  // descifrado fallido = clave incorrecta, ignorar
-    const msg = Y.decodeUpdate !== undefined
-      ? tryParseMsg(new Uint8Array(raw))
-      : tryParseMsg(new Uint8Array(raw))
+    const msg = tryParseMsg(new Uint8Array(raw))
     if (!msg) return
 
     if (msg.type === 'sync') {
-      // Actualización del documento Yjs
-      Y.applyUpdate(ydoc, msg.update, 'remote')
+      try {
+        Y.applyUpdate(ydoc, msg.update, 'remote')
+      } catch(e) {
+        console.warn('Error aplicando update Yjs:', e)
+      }
     } else if (msg.type === 'awareness') {
       // Estado de awareness de otro peer
       handleRemoteAwareness(msg)
@@ -646,7 +653,7 @@ function encodeMsg(type, payload) {
 }
 
 function tryParseMsg(arr) {
-  if (arr.length < 1) return null
+  if (!arr || arr.length < 2) return null
   const typeMap = { 0x01: 'sync', 0x02: 'awareness' }
   const type = typeMap[arr[0]]
   if (!type) return null
@@ -656,7 +663,7 @@ function tryParseMsg(arr) {
 async function sendRelay(type, payload) {
   if (!relayWS || relayWS.readyState !== WebSocket.OPEN) return
   const msg = encodeMsg(type, payload)
-  const encrypted = await encryptMsg(msg.buffer)
+  const encrypted = await encryptMsg(msg)
   relayWS.send(encrypted)
 }
 
@@ -761,16 +768,15 @@ async function initYjs(roomId, password, isHost) {
     syncEditorFromYjs()
   })
 
-  // Enviar actualizaciones locales al relay
+  // Un solo handler para updates del ydoc
   ydoc.on('update', (update, origin) => {
-    if (origin === 'remote') return  // no re-enviar lo que llegó del relay
-    sendRelay('sync', update)
-  })
-
-  // Cuando llegue una actualización remota, refrescar el editor
-  ydoc.on('update', (update, origin) => {
-    if (origin !== 'remote') return
-    syncEditorFromYjs()
+    if (origin !== 'remote') {
+      // Cambio local: enviar al relay
+      sendRelay('sync', update)
+    } else {
+      // Cambio remoto: refrescar editor
+      syncEditorFromYjs()
+    }
   })
 
   // Conectar al relay; al abrir: enviar snapshot + anunciar presencia
@@ -828,8 +834,12 @@ function setupEditorSync() {
     debouncedHash()
   })
 
+  // Guardar selección continuamente
+  ta.addEventListener('focus', saveSelection)
+
   // textarea → Y.Text (local changes)
   ta.addEventListener('input', () => {
+    saveSelection()
     if (!yText) return
     const newVal = ta.value
     applyDiff(yText, lastEditorValue, newVal, ydoc)
@@ -852,47 +862,66 @@ function setupEditorSync() {
     }
     if (e.key==='Tab') {
       e.preventDefault()
-      const s=ta.selectionStart, v=ta.value
-      ta.value = v.slice(0,s)+'  '+v.slice(ta.selectionEnd)
-      ta.selectionStart = ta.selectionEnd = s+2
-      ta.dispatchEvent(new Event('input'))
+      const s = ta.selectionStart
+      const full = ta.value.slice(0,s) + '  ' + ta.value.slice(ta.selectionEnd)
+      applyToEditor(full, s+2, s+2)
     }
   })
 
-  ta.addEventListener('keyup', broadcastCursor)
-  ta.addEventListener('click', broadcastCursor)
-  ta.addEventListener('select', broadcastCursor)
+  ta.addEventListener('keyup', () => { saveSelection(); broadcastCursor() })
+  ta.addEventListener('click', () => { saveSelection(); broadcastCursor() })
+  ta.addEventListener('select', () => { saveSelection(); broadcastCursor() })
+  ta.addEventListener('keydown', saveSelection)
+}
+
+// Selección guardada justo antes de que el botón robe el foco
+let savedSel = { start: 0, end: 0 }
+
+function saveSelection() {
+  const ta = $('editor-textarea')
+  savedSel = { start: ta.selectionStart, end: ta.selectionEnd }
+}
+
+function applyToEditor(newFull, newSelStart, newSelEnd) {
+  const ta = $('editor-textarea')
+  const prev = ta.value
+  ta.value = newFull
+  ta.focus()
+  ta.setSelectionRange(newSelStart, newSelEnd)
+  // Sincronizar con Yjs si está listo; si no, el input handler lo recoge al próximo keystroke
+  if (yText && ydoc) {
+    try {
+      applyDiff(yText, lastEditorValue, newFull, ydoc)
+      lastEditorValue = newFull
+    } catch(e) {
+      // Si Yjs falla, al menos el textarea tiene el valor correcto
+      lastEditorValue = newFull
+      console.warn('applyDiff falló:', e)
+    }
+  } else {
+    lastEditorValue = newFull
+  }
+  updatePreview()
+  updateWordCount()
 }
 
 function wrapSelection(before, after) {
   const ta = $('editor-textarea')
-  const s = ta.selectionStart, e = ta.selectionEnd
+  // Usar savedSel si el textarea perdió foco, si no usar la selección actual
+  const s = document.activeElement === ta ? ta.selectionStart : savedSel.start
+  const e = document.activeElement === ta ? ta.selectionEnd   : savedSel.end
   const selected = ta.value.slice(s, e) || 'texto'
-  const newText = before + selected + after
-  const full = ta.value.slice(0,s) + newText + ta.value.slice(e)
-  ta.value = full
-  ta.selectionStart = s + before.length
-  ta.selectionEnd = s + before.length + selected.length
-  if (yText) {
-    applyDiff(yText, lastEditorValue, full, ydoc)
-    lastEditorValue = full
-  }
-  updatePreview()
-  updateWordCount()
+  const wrapped = before + selected + after
+  const full = ta.value.slice(0, s) + wrapped + ta.value.slice(e)
+  applyToEditor(full, s + before.length, s + before.length + selected.length)
 }
 
 function insertAtCursor(text) {
   const ta = $('editor-textarea')
-  const s = ta.selectionStart
-  const full = ta.value.slice(0,s) + text + ta.value.slice(ta.selectionEnd)
-  ta.value = full
-  ta.selectionStart = ta.selectionEnd = s + text.length
-  if (yText) {
-    applyDiff(yText, lastEditorValue, full, ydoc)
-    lastEditorValue = full
-  }
-  updatePreview()
-  updateWordCount()
+  const s = document.activeElement === ta ? ta.selectionStart : savedSel.start
+  const e = document.activeElement === ta ? ta.selectionEnd   : savedSel.end
+  const full = ta.value.slice(0, s) + text + ta.value.slice(e)
+  applyToEditor(full, s + text.length, s + text.length)
 }
 
 function broadcastCursor() {
@@ -1276,6 +1305,8 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+
 // Typing awareness
 let typingTimer = null
 $('chat-input').addEventListener('input', () => {
@@ -1442,6 +1473,7 @@ $('exp-print').addEventListener('click', () => {
   window.print()
 })
 
+
 /* ═══════════════════════════════════════════════
    UI EVENT HANDLERS
 ════════════════════════════════════════════════ */
@@ -1562,8 +1594,6 @@ $('btn-clear-board').addEventListener('click', () => {
 document.querySelectorAll('[data-action]').forEach(btn => {
   btn.addEventListener('click', () => {
     if (S.role === 'observer') return
-    const ta = $('editor-textarea')
-    ta.focus()
     const action = btn.dataset.action
     const actions = {
       'bold':       () => wrapSelection('**','**'),
@@ -1675,6 +1705,8 @@ if (urlRoom) {
 window.addEventListener('load', () => {
   if (!urlRoom) $('create-name').focus()
 })
+
+}) // DOMContentLoaded
 </script>
 </body>
 </html>
