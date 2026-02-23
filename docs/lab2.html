@@ -542,8 +542,6 @@ input,textarea{font:inherit;color:inherit;}
    CONFIG
 ═══════════════════════════════════════════════════════════════════ */
 const CONFIG = Object.freeze({
-  RELAY_URL:       'wss://labcolab-relay.TU_USUARIO.workers.dev',
-  RECONNECT_DELAY: 3000,
   AUTOSAVE_MS:     3000,
   PEER_COLORS:     ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#34d399','#fb923c','#e879f9'],
   DEFAULT_DOC: `# Nuevo documento científico
@@ -570,6 +568,7 @@ $$\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}$$
 /* ═══════════════════════════════════════════════════════════════════
    UTILS  — funciones puras sin efectos secundarios
 ═══════════════════════════════════════════════════════════════════ */
+
 const Utils = (() => {
   const $ = id => document.getElementById(id)
 
@@ -618,13 +617,6 @@ const Utils = (() => {
   return { $, rand, genId, genRoom, peerColor, initials, clamp, escHtml,
            debounce, applyDiff, sha256, download }
 })()
-
-const { $, genId, genRoom, peerColor, initials, clamp, escHtml,
-        debounce, applyDiff, sha256, download } = Utils
-
-/* ═══════════════════════════════════════════════════════════════════
-   STATE  — único objeto de sesión mutable
-═══════════════════════════════════════════════════════════════════ */
 const State = (() => {
   const _s = {
     peerId: null, name: 'Anónimo', role: 'observer', roomId: null,
@@ -641,10 +633,6 @@ const State = (() => {
   const patch  = obj     => Object.assign(_s, obj)
   return { get, set, patch }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   EVENT BUS  — desacopla módulos entre sí
-═══════════════════════════════════════════════════════════════════ */
 const Bus = (() => {
   const _L = {}
   const on   = (ev, cb) => { (_L[ev] = _L[ev] || []).push(cb) }
@@ -652,10 +640,6 @@ const Bus = (() => {
   const emit = (ev, d)  => { (_L[ev] || []).forEach(cb => { try { cb(d) } catch(e) { console.error('Bus', ev, e) } }) }
   return { on, off, emit }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   COMPAT  — F6: detección de incompatibilidades
-═══════════════════════════════════════════════════════════════════ */
 const Compat = (() => {
   const check = () => {
     const issues = []
@@ -665,9 +649,9 @@ const Compat = (() => {
     if (!window.crypto?.subtle)
       issues.push({ level:'error', icon:'🔓', title:'Sin cifrado disponible',
         msg:'WebCrypto no está disponible. Abre la app en HTTPS, no HTTP. El cifrado extremo a extremo no funcionará.' })
-    if (!window.WebSocket)
-      issues.push({ level:'error', icon:'🔌', title:'WebSocket no disponible',
-        msg:'Tu navegador no soporta WebSockets. La colaboración en tiempo real no funcionará.' })
+    if (!window.RTCPeerConnection)
+      issues.push({ level:'error', icon:'📡', title:'WebRTC no disponible',
+        msg:'Tu navegador no soporta WebRTC. La colaboración en tiempo real no funcionará. Prueba Chrome 90+, Firefox 88+ o Safari 15+.' })
     if (!window.indexedDB)
       issues.push({ level:'warning', icon:'💾', title:'Sin persistencia local',
         msg:'IndexedDB no disponible (¿modo privado?). El documento no se guardará localmente entre sesiones.' })
@@ -705,10 +689,6 @@ const Compat = (() => {
 
   return { check, showIfNeeded }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   UI  — todas las mutaciones del DOM
-═══════════════════════════════════════════════════════════════════ */
 const UI = (() => {
   // ── Toast ──────────────────────────────────────────────────────
   let _toastT = null
@@ -721,13 +701,12 @@ const UI = (() => {
 
   // ── Connection ─────────────────────────────────────────────────
   const setConnectionStatus = status => {
-    $('status-dot').className = 'status-dot ' + status
+    $('status-dot').className = 'status-dot ' + (status === 'connecting' ? 'connecting' : status === 'connected' ? 'connected' : 'disconnected')
     $('status-text').textContent = {
-      connected:    'Conectado',
-      'local':      'Local (BroadcastChannel)',
-      connecting:   'Conectando...',
-      disconnected: 'Desconectado — reconectando...',
-      error:        'Sin relay — modo local activo',
+      connected:    'Conectado (WebRTC)',
+      connecting:   'Conectando vía WebRTC...',
+      disconnected: 'Desconectado',
+      error:        'Error de conexión',
     }[status] ?? status
   }
 
@@ -986,12 +965,6 @@ const UI = (() => {
 
   return { toast, showApp, switchPanel, setDocHash, setRole, renderPRList, renderPeersBar }
 })()
-
-const toast = UI.toast
-
-/* ═══════════════════════════════════════════════════════════════════
-   CRYPTO  — AES-256-GCM end-to-end
-═══════════════════════════════════════════════════════════════════ */
 const Crypto = (() => {
   let _key = null
   const init = async (password, roomId) => {
@@ -1022,310 +995,255 @@ const Crypto = (() => {
   }
   return { init, encrypt, decrypt }
 })()
-
 /* ═══════════════════════════════════════════════════════════════════
-   RELAY  — WebSocket con codec binario y reconexión automática
-   Protocolo: byte 0x01=sync, 0x02=awareness + payload
-═══════════════════════════════════════════════════════════════════ */
-const Relay = (() => {
-  let _ws, _room, _pass
-  const T = { sync:0x01, awareness:0x02 }
-  const TI = { [0x01]:'sync', [0x02]:'awareness' }
-
-  const _encode = (type, payload) => {
-    const out = new Uint8Array(1 + payload.length)
-    out[0] = T[type]; out.set(payload, 1); return out
-  }
-  const _decode = arr => {
-    if (!arr || arr.length < 2) return null
-    const type = TI[arr[0]]
-    return type ? { type, payload: arr.slice(1) } : null
-  }
-
-  // BroadcastChannel: used as local-tab transport when WebSocket is unavailable.
-  // Allows same-origin tabs to collaborate without a relay server.
-  let _bc = null
-
-  const _initBC = () => {
-    if (!window.BroadcastChannel) return
-    try {
-      _bc = new BroadcastChannel('labcolab-' + _room)
-      _bc.onmessage = async e => {
-        if (!e.data || e.data.from === State.get('peerId')) return
-        // Payload is base64 encoded ArrayBuffer
-        const bin = Uint8Array.from(atob(e.data.payload), c => c.charCodeAt(0))
-        const raw = await Crypto.decrypt(bin.buffer)
-        if (!raw) return
-        const msg = _decode(new Uint8Array(raw))
-        if (msg) Bus.emit('relay:message', msg)
-      }
-    } catch(e) { _bc = null }
-  }
-
-  const _sendBC = async (type, payload) => {
-    if (!_bc) return
-    const enc = await Crypto.encrypt(_encode(type, payload))
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(enc)))
-    try { _bc.postMessage({ from: State.get('peerId'), payload: b64 }) } catch {}
-  }
-
-  const _connect = onOpen => {
-    // Skip WebSocket attempt if URL is still the placeholder
-    if (CONFIG.RELAY_URL.includes('TU_USUARIO')) {
-      _initBC()
-      Bus.emit('connection:status', { status: _bc ? 'local' : 'disconnected' })
-      State.set('connected', !!_bc)
-      if (onOpen) onOpen()
-      return
-    }
-    _ws = new WebSocket(CONFIG.RELAY_URL.replace(/\/+$/, '') + '/room/' + _room)
-    _ws.binaryType = 'arraybuffer'
-    _ws.addEventListener('open', () => {
-      _initBC()  // also open BC for same-origin tabs
-      Bus.emit('connection:status', { status:'connected' }); State.set('connected', true)
-      if (onOpen) onOpen()
-    })
-    _ws.addEventListener('message', async e => {
-      const raw = await Crypto.decrypt(e.data)
-      if (!raw) return
-      const msg = _decode(new Uint8Array(raw))
-      if (msg) Bus.emit('relay:message', msg)
-    })
-    _ws.addEventListener('close', () => {
-      Bus.emit('connection:status', { status:'disconnected' }); State.set('connected', false)
-      setTimeout(() => _connect(() => Bus.emit('relay:reconnected')), CONFIG.RECONNECT_DELAY)
-    })
-    _ws.addEventListener('error', () => {
-      // Fall back to BroadcastChannel for same-origin testing
-      _initBC()
-      Bus.emit('connection:status', { status: _bc ? 'local' : 'error' })
-      State.set('connected', !!_bc)
-      if (!_ws || _ws.readyState > 1) {
-        setTimeout(() => _connect(() => Bus.emit('relay:reconnected')), CONFIG.RECONNECT_DELAY)
-      }
-    })
-  }
-
-  const send = async (type, payload) => {
-    // Send via WebSocket (if open) AND BroadcastChannel (for same-origin tabs)
-    const enc = _encode(type, payload)
-    if (_ws && _ws.readyState === WebSocket.OPEN) {
-      _ws.send(await Crypto.encrypt(enc))
-    }
-    await _sendBC(type, payload)
-  }
-
-  const connect = (room, pass, onOpen) => { _room = room; _pass = pass; _connect(onOpen) }
-  return { connect, send }
-})()
-
-/* ═══════════════════════════════════════════════════════════════════
-   AWARENESS  — presencia de peers sin y-protocols
-═══════════════════════════════════════════════════════════════════ */
-const Awareness = (() => {
-  const _states = new Map()
-
-  const getStates = () => new Map(_states)
-
-  const _broadcast = () => {
-    const id = State.get('peerId'); if (!id) return
-    Relay.send('awareness', new TextEncoder().encode(
-      JSON.stringify({ clientId: id, state: _states.get(id) || {} })))
-  }
-
-  const setLocalState = state => {
-    const id = State.get('peerId'); if (!id) return
-    _states.set(id, state); _broadcast()
-    // Emit locally so peers list updates immediately without waiting for relay echo
-    Bus.emit('awareness:changed', { states: getStates() })
-  }
-  const setLocalField = (field, value) => {
-    const id = State.get('peerId'); if (!id) return
-    const cur = _states.get(id) || {}; cur[field] = value
-    _states.set(id, cur); _broadcast()
-    Bus.emit('awareness:changed', { states: getStates() })
-  }
-
-  Bus.on('relay:message', msg => {
-    if (msg.type !== 'awareness') return
-    try {
-      const { clientId, state } = JSON.parse(new TextDecoder().decode(msg.payload))
-      if (state === null) _states.delete(clientId)
-      else                _states.set(clientId, state)
-      Bus.emit('awareness:changed', { states: getStates() })
-    } catch {}
-  })
-
-  return { getStates, setLocalState, setLocalField }
-})()
-
-/* ═══════════════════════════════════════════════════════════════════
-   YJS  — CRDT, IDB persistence, relay sync
+   YJS  — CRDT + y-webrtc (WebRTC P2P, señalización pública) + y-indexeddb
+   
+   y-webrtc conecta peers directamente vía WebRTC usando
+   wss://y-webrtc-eu.fly.dev como señalizador público.
+   No requiere configurar ningún servidor propio.
+   El awareness (presencia de peers) está incluido en y-webrtc.
 ═══════════════════════════════════════════════════════════════════ */
 const Yjs = (() => {
-  let _Y, _IDB
+  let _Y, _WebrtcProvider, _IndexeddbPersistence
   let _doc, _text, _strokes, _chat, _session, _meta, _undo
+  let _provider   // WebrtcProvider instance
+  let _idb        // IndexeddbPersistence instance
 
+  // ── Load libraries ──────────────────────────────────────────
   const load = async () => {
     try {
       const ym = await import('https://esm.sh/yjs@13.6.18?bundle')
       _Y = ym.default ? { ...ym.default, ...ym } : ym
+
+      const wm = await import('https://esm.sh/y-webrtc@10.3.0?deps=yjs@13.6.18&bundle')
+      _WebrtcProvider = wm.WebrtcProvider
+
       const im = await import('https://esm.sh/y-indexeddb@9.0.12?deps=yjs@13.6.18&bundle')
-      _IDB = im.IndexeddbPersistence; return true
-    } catch(e) { console.error(e); return false }
+      _IndexeddbPersistence = im.IndexeddbPersistence
+
+      return true
+    } catch(e) {
+      console.error('Error cargando Yjs / y-webrtc:', e)
+      return false
+    }
   }
 
+  // ── Init ─────────────────────────────────────────────────────
   const init = async (roomId, password, isHost) => {
     if (!await load()) {
-      toast('Error cargando librerías. Modo local activo.')
-      Bus.emit('connection:status', { status:'disconnected' }); return false
+      toast('Error cargando librerías de colaboración.')
+      Bus.emit('connection:status', { status: 'disconnected' })
+      return false
     }
-    await Crypto.init(password, roomId)
+
     _doc     = new _Y.Doc()
     _text    = _doc.getText('editor')
     _strokes = _doc.getArray('strokes')
     _chat    = _doc.getArray('chat')
     _session = _doc.getMap('session')
     _meta    = _doc.getMap('meta')
-    State.set('peerId', _doc.clientID.toString())
 
-    const _idb = new _IDB('labcolab-' + roomId, _doc)
-    _idb.on('synced', () => {
+    // peerId = string de clientID numérico de Yjs
+    State.set('peerId', String(_doc.clientID))
+
+    // ── IndexedDB persistence ──────────────────────────────────
+    _idb = new _IndexeddbPersistence('labcolab-' + roomId, _doc)
+    _idb.whenSynced.then(() => {
       if (isHost && _text.length === 0)
         _doc.transact(() => _text.insert(0, CONFIG.DEFAULT_DOC), 'init')
       Bus.emit('yjs:synced')
     })
 
-    // Forward only locally-generated changes; never IDB (null) or remote echoes
-    _doc.on('update', (update, origin) => {
-      if (origin === 'local' || origin === 'init') Relay.send('sync', update)
+    // ── WebRTC provider ────────────────────────────────────────
+    // La sala se identifica con roomId + hash del password para aislar salas
+    const roomKey  = password ? roomId + '-' + await _hashRoom(password) : roomId
+    _provider = new _WebrtcProvider(roomKey, _doc, {
+      signaling: ['wss://y-webrtc-eu.fly.dev'],
+      // El password cifra la señalización WebRTC (no el documento)
+      password:  password || null,
+      maxConns:  20,
+      awareness: null, // se usa la awareness built-in del provider
     })
 
-    Bus.on('relay:message', msg => {
-      if (msg.type !== 'sync') return
-      try { _Y.applyUpdate(_doc, msg.payload, 'remote') } catch(e) { console.warn(e) }
+    // ── Awareness (incluida en y-webrtc) ──────────────────────
+    const awareness = _provider.awareness
+
+    // Establecer estado local de awareness con nombre y rol
+    awareness.setLocalState({
+      name:   State.get('name'),
+      role:   State.get('role'),
+      color:  Utils.peerColor(String(_doc.clientID)),
+      cursor: null,
+      boardStroke: null,
     })
 
-    Bus.on('relay:reconnected', () => {
-      Relay.send('sync', _Y.encodeStateAsUpdate(_doc))
-      Awareness.setLocalState({ name:State.get('name'), role:State.get('role'),
-        color:peerColor(State.get('peerId')), cursor:null, boardStroke:null })
+    // Propagar cambios de awareness al Bus
+    awareness.on('change', () => {
+      const states = new Map()
+      awareness.getStates().forEach((state, clientId) => {
+        if (state && state.name) states.set(String(clientId), state)
+      })
+      Bus.emit('awareness:changed', { states })
     })
 
-    Relay.connect(roomId, password, () => {
-      Relay.send('sync', _Y.encodeStateAsUpdate(_doc))
-      Awareness.setLocalState({ name:State.get('name'), role:State.get('role'),
-        color:peerColor(State.get('peerId')), cursor:null, boardStroke:null })
+    // ── Conexión ──────────────────────────────────────────────
+    _provider.on('status', ({ connected }) => {
+      Bus.emit('connection:status', { status: connected ? 'connected' : 'connecting' })
+      State.set('connected', connected)
     })
 
-    _undo = new _Y.UndoManager(_text, { captureTimeout:500 })
+    // Emit initial connected state after short delay (WebRTC needs time)
+    Bus.emit('connection:status', { status: 'connecting' })
+    setTimeout(() => {
+      Bus.emit('connection:status', {
+        status: _provider.connected ? 'connected' : 'connecting'
+      })
+    }, 1500)
 
+    // ── UndoManager ───────────────────────────────────────────
+    _undo = new _Y.UndoManager(_text, { captureTimeout: 500 })
+
+    // ── Host: init session map ─────────────────────────────────
     if (isHost) {
-      _session.set('host',       State.get('peerId'))
+      _session.set('host',       String(_doc.clientID))
       _session.set('hostName',   State.get('name'))
       _session.set('created',    Date.now())
       _session.set('hostPolicy', { revokeOnDisconnect: false })
       _meta.set('title', 'Nuevo documento')
     }
+
+    // Emit initial awareness so peers bar shows immediately
+    setTimeout(() => {
+      const states = new Map()
+      awareness.getStates().forEach((state, clientId) => {
+        if (state && state.name) states.set(String(clientId), state)
+      })
+      Bus.emit('awareness:changed', { states })
+    }, 100)
+
     return true
   }
 
-  // Role signals (existing mechanism)
+  // ── Awareness helpers (used by Editor, Chat, etc.) ───────────
+  const getAwareness = () => _provider?.awareness
+
+  const setLocalAwarenessField = (field, value) => {
+    const aw = _provider?.awareness
+    if (!aw) return
+    const cur = aw.getLocalState() || {}
+    aw.setLocalState({ ...cur, [field]: value })
+  }
+
+  const setLocalAwarenessState = state => {
+    _provider?.awareness?.setLocalState(state)
+  }
+
+  const getAwarenessStates = () => {
+    const states = new Map()
+    _provider?.awareness?.getStates().forEach((state, clientId) => {
+      if (state && state.name) states.set(String(clientId), state)
+    })
+    return states
+  }
+
+  // ── Hash room+password for isolation ────────────────────────
+  const _hashRoom = async password => {
+    const buf = await crypto.subtle.digest(
+      'SHA-256', new TextEncoder().encode(password + ':labcolab'))
+    return Array.from(new Uint8Array(buf)).slice(0, 4)
+      .map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  // ── Role signals ──────────────────────────────────────────────
   const watchRoleSignals = () => {
     if (!_session) return
     _session.observe(ev => {
-      // ── roleSignals ──
       if (ev.keysChanged.has('roleSignals')) {
         const sigs = _session.get('roleSignals') || {}
-        const myId = _doc.clientID.toString()
+        const myId = String(_doc.clientID)
         const sig  = sigs[myId]
         if (sig && sig.ts > State.get('_lastRoleTs')) {
           State.set('_lastRoleTs', sig.ts)
           State.set('role', sig.role)
           Bus.emit('role:changed', { role: sig.role })
-          Awareness.setLocalField('role', sig.role)
+          setLocalAwarenessField('role', sig.role)
           toast('Tu rol cambió a: ' + sig.role)
         }
       }
-      // ── coHost ──
       if (ev.keysChanged.has('coHost')) {
         const coHost = _session.get('coHost')
         State.set('coHostPeerId', coHost ? coHost.peerId : null)
         Bus.emit('colead:changed', coHost)
         if (coHost && coHost.peerId === State.get('peerId')) {
           State.set('role', 'co-host')
-          Bus.emit('role:changed', { role:'co-host' })
-          Awareness.setLocalField('role', 'co-host')
+          Bus.emit('role:changed', { role: 'co-host' })
+          setLocalAwarenessField('role', 'co-host')
           toast('⭐ Eres el nuevo post-líder')
         }
-        // If we were co-host and it was removed, revert to editor
         if (!coHost && State.get('role') === 'co-host') {
           State.set('role', 'editor')
-          Bus.emit('role:changed', { role:'editor' })
-          Awareness.setLocalField('role', 'editor')
+          Bus.emit('role:changed', { role: 'editor' })
+          setLocalAwarenessField('role', 'editor')
           toast('Co-liderazgo revocado — eres editor')
         }
       }
-      // ── hostPolicy ──
       if (ev.keysChanged.has('hostPolicy')) {
         const pol = _session.get('hostPolicy') || {}
         State.set('revokeOnDisconnect', !!pol.revokeOnDisconnect)
-        $('chk-revoke-on-disconnect').checked = !!pol.revokeOnDisconnect
+        const chk = $('chk-revoke-on-disconnect')
+        if (chk) chk.checked = !!pol.revokeOnDisconnect
       }
     })
   }
 
-  // ── F5: Watch host presence ──────────────────────────────────
+  // ── Watch host presence (F5) ──────────────────────────────────
   const watchHostPresence = () => {
     Bus.on('awareness:changed', ({ states }) => {
       if (!_session) return
-      const hostId = _session.get('host')
-      const coHost = _session.get('coHost')
-      const myPeer = State.get('peerId')
+      const hostId  = _session.get('host')
+      const coHost  = _session.get('coHost')
+      const myPeer  = State.get('peerId')
       if (!hostId || !coHost || coHost.peerId !== myPeer) return
       if (!State.get('revokeOnDisconnect')) return
-      const hostPresent = states.has(hostId) || states.has(parseInt(hostId))
+      const hostPresent = states.has(hostId)
       if (!hostPresent && State.get('role') === 'co-host') {
         State.set('role', 'editor')
-        Bus.emit('role:changed', { role:'editor' })
-        Awareness.setLocalField('role', 'editor')
+        Bus.emit('role:changed', { role: 'editor' })
+        setLocalAwarenessField('role', 'editor')
         toast('⚠ Host desconectado — co-liderazgo revocado automáticamente')
       }
     })
   }
 
-  // ── Set role via roleSignals ───────────────────────────────────
+  // ── Assign role ───────────────────────────────────────────────
   const setRole = (clientId, role) => {
     if (State.get('role') !== 'host' || !_session) return
     const sigs = _session.get('roleSignals') || {}
-    sigs[clientId.toString()] = { role, ts: Date.now() }
+    sigs[String(clientId)] = { role, ts: Date.now() }
     _session.set('roleSignals', { ...sigs })
     toast('Rol asignado: ' + role)
   }
 
-  // ── F4: Toggle co-host ────────────────────────────────────────
+  // ── Toggle co-host (F4) ───────────────────────────────────────
   const toggleCoHost = clientId => {
     if (State.get('role') !== 'host' || !_session) return
     const current = _session.get('coHost')
-    const cid     = clientId.toString()
+    const cid     = String(clientId)
     if (current && current.peerId === cid) {
-      // Remove co-host — revert them to editor
       _session.set('coHost', null)
       setRole(cid, 'editor')
       toast('Co-liderazgo revocado')
     } else {
-      // Revoke previous co-host if any
       if (current) setRole(current.peerId, 'editor')
-      const states = Awareness.getStates()
-      const state  = states.get(cid) || states.get(parseInt(cid))
-      const name   = state?.name ?? 'Desconocido'
+      const states = getAwarenessStates()
+      const name   = states.get(cid)?.name ?? 'Desconocido'
       _session.set('coHost', { peerId: cid, name, ts: Date.now() })
       setRole(cid, 'co-host')
       toast('Post-líder designado: ' + name)
     }
   }
 
-  // ── F5: Host policy ───────────────────────────────────────────
+  // ── Host policy (F5) ─────────────────────────────────────────
   const setHostPolicy = revokeOnDisconnect => {
     if (State.get('role') !== 'host' || !_session) return
     State.set('revokeOnDisconnect', revokeOnDisconnect)
@@ -1335,6 +1253,7 @@ const Yjs = (() => {
       : '🔓 Co-líder mantiene permisos aunque te desconectes')
   }
 
+  // ── Accessors ─────────────────────────────────────────────────
   const getText    = () => _text
   const getStrokes = () => _strokes
   const getChat    = () => _chat
@@ -1342,14 +1261,25 @@ const Yjs = (() => {
   const getUndo    = () => _undo
   const getSession = () => _session
 
-  return { init, watchRoleSignals, watchHostPresence,
-           setRole, toggleCoHost, setHostPolicy,
-           getText, getStrokes, getChat, getDoc, getUndo, getSession }
+  return {
+    init, watchRoleSignals, watchHostPresence,
+    setRole, toggleCoHost, setHostPolicy,
+    getText, getStrokes, getChat, getDoc, getUndo, getSession,
+    getAwareness, getAwarenessStates,
+    setLocalAwarenessField, setLocalAwarenessState,
+  }
 })()
 
 /* ═══════════════════════════════════════════════════════════════════
-   EDITOR  — F1 + F3: autosave cada 3 s, edición en vivo para todos
+   AWARENESS  — thin wrapper sobre y-webrtc awareness
+   Mantiene la interfaz que usan Editor, Chat, Board, etc.
 ═══════════════════════════════════════════════════════════════════ */
+const Awareness = (() => {
+  const getStates      = ()            => Yjs.getAwarenessStates()
+  const setLocalState  = state         => Yjs.setLocalAwarenessState(state)
+  const setLocalField  = (field, value) => Yjs.setLocalAwarenessField(field, value)
+  return { getStates, setLocalState, setLocalField }
+})()
 const Editor = (() => {
   let _last = '', _sel = { start:0, end:0 }
 
@@ -1480,10 +1410,6 @@ const Editor = (() => {
 
   return { setup, wrapSelection, insertAtCursor, getHash }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   PREVIEW  — Markdown + KaTeX renderer
-═══════════════════════════════════════════════════════════════════ */
 const Preview = (() => {
   marked.setOptions({ breaks:true, gfm:true })
   const mkM = i => '\x02MATH' + i + '\x03'
@@ -1511,10 +1437,6 @@ const Preview = (() => {
 
   return { setup, render }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   BOARD  — whiteboard collaborative canvas
-═══════════════════════════════════════════════════════════════════ */
 const Board = (() => {
   let _c, _ctx, _dpr=1, _init=false, _peers={}, _raf=null
 
@@ -1660,10 +1582,6 @@ const Board = (() => {
 
   return { init, resize:_resize }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   CHAT
-═══════════════════════════════════════════════════════════════════ */
 const Chat = (() => {
   let _tt = null
   const send = () => {
@@ -1704,10 +1622,6 @@ const Chat = (() => {
   }
   return { setup }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   PR MODULE  — F2: pull requests / propuestas de cambio
-═══════════════════════════════════════════════════════════════════ */
 const PR = (() => {
   // PRs stored as JSON string in ySession['pullRequests']
   const _get = () => {
@@ -1787,10 +1701,6 @@ const PR = (() => {
 
   return { setup, accept, reject }
 })()
-
-/* ═══════════════════════════════════════════════════════════════════
-   EXPORT
-═══════════════════════════════════════════════════════════════════ */
 const Export = (() => {
   const setup = () => {
     $('btn-export-open').addEventListener('click', async () => {
@@ -1823,14 +1733,14 @@ pre{background:#f5f5f5;padding:12px;border-radius:4px;}footer{margin-top:40px;pa
   }
   return { setup }
 })()
-
 /* ═══════════════════════════════════════════════════════════════════
-   SESSION  — orquesta el inicio y conecta todos los módulos
+   SESSION  — orquesta inicio, conecta todos los módulos
 ═══════════════════════════════════════════════════════════════════ */
 const Session = (() => {
   const start = async (roomId, password, isHost) => {
-    State.patch({ name:State.get('name'), role:isHost?'host':'editor', roomId })
+    State.patch({ name: State.get('name'), role: isHost ? 'host' : 'editor', roomId })
     UI.showApp(roomId)
+
     if (!await Yjs.init(roomId, password, isHost)) return
 
     Editor.setup()
@@ -1841,21 +1751,19 @@ const Session = (() => {
     Yjs.watchHostPresence()
     PR.setup()
 
-    Bus.emit('role:changed', { role:State.get('role') })
+    Bus.emit('role:changed', { role: State.get('role') })
 
-    // Set local awareness state immediately — this emits awareness:changed locally
-    // so the peers list shows the current user before relay connects.
-    Awareness.setLocalState({
-      name:  State.get('name'),
-      role:  State.get('role'),
-      color: peerColor(State.get('peerId')),
-      cursor: null, boardStroke: null,
-    })
+    // Emit initial awareness so peers bar shows the local user immediately
+    setTimeout(() => {
+      Bus.emit('awareness:changed', { states: Awareness.getStates() })
+    }, 200)
 
     setTimeout(() => {
-      Bus.emit('chat:message', { msg:{ type:'system',
-        text:'Sala ' + roomId + ' — ' + (isHost?'creada':'unido') + ' como ' + State.get('name'),
-        ts:Date.now() }})
+      Bus.emit('chat:message', { msg: {
+        type: 'system',
+        text: 'Sala ' + roomId + ' — ' + (isHost ? 'creada' : 'unido') + ' como ' + State.get('name'),
+        ts:   Date.now(),
+      }})
       toast(isHost ? 'Sala ' + roomId + ' creada ✓' : 'Unido a sala ' + roomId + ' ✓')
     }, 500)
   }
@@ -1863,10 +1771,10 @@ const Session = (() => {
 })()
 
 /* ═══════════════════════════════════════════════════════════════════
-   APP  — entry point, wires all UI events
+   APP  — entry point, registra todos los event listeners de UI
 ═══════════════════════════════════════════════════════════════════ */
 const App = (() => {
-  // Expose to window for inline onclick buttons
+  // Exposed to window for inline onclick buttons in peers list
   window.App = {
     setRole:      Yjs.setRole,
     toggleCoHost: Yjs.toggleCoHost,
@@ -1875,10 +1783,10 @@ const App = (() => {
   }
 
   const _init = () => {
-    // ── Compat check first (async, resolves before we show session modal) ──
-    Compat.showIfNeeded()   // non-blocking; modal overlays with higher z-index
+    // ── Compat check ────────────────────────────────────────────
+    Compat.showIfNeeded()
 
-    // ── Modal tabs ──────────────────────────────────────────────
+    // ── Modal tabs ───────────────────────────────────────────────
     $('tab-btn-create').addEventListener('click', () => {
       $('tab-btn-create').classList.add('active'); $('tab-btn-join').classList.remove('active')
       $('tab-create').classList.add('active');     $('tab-join').classList.remove('active')
@@ -1888,25 +1796,30 @@ const App = (() => {
       $('tab-join').classList.add('active');       $('tab-create').classList.remove('active')
     })
 
-    // ── Create / join ───────────────────────────────────────────
+    // ── Create ───────────────────────────────────────────────────
     $('btn-create').addEventListener('click', () => {
-      const name=($('create-name').value.trim()||'Investigador'), pass=$('create-pass').value
-      State.patch({ name }); Session.start(genRoom(), pass, true)
+      const name = $('create-name').value.trim() || 'Investigador'
+      const pass = $('create-pass').value
+      State.patch({ name })
+      Session.start(genRoom(), pass, true)
     })
+
+    // ── Join ─────────────────────────────────────────────────────
     $('btn-join').addEventListener('click', () => {
-      const name=($('join-name').value.trim()||'Investigador')
-      const room=$('join-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')
-      const pass=$('join-pass').value
+      const name = $('join-name').value.trim() || 'Investigador'
+      const room = $('join-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      const pass = $('join-pass').value
       if (!room) { toast('Ingresa un código de sala'); return }
-      State.patch({ name }); Session.start(room, pass, false)
+      State.patch({ name })
+      Session.start(room, pass, false)
     })
 
     ;['create-name','create-pass'].forEach(id =>
-      $(id).addEventListener('keydown', e => { if(e.key==='Enter') $('btn-create').click() }))
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create').click() }))
     ;['join-name','join-room','join-pass'].forEach(id =>
-      $(id).addEventListener('keydown', e => { if(e.key==='Enter') $('btn-join').click() }))
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-join').click() }))
 
-    // ── Copy room link ──────────────────────────────────────────
+    // ── Copy room link ───────────────────────────────────────────
     $('btn-copy-room').addEventListener('click', () => {
       const url = location.origin + location.pathname + '?room=' + State.get('roomId')
       navigator.clipboard.writeText(url)
@@ -1914,10 +1827,10 @@ const App = (() => {
         .catch(() => navigator.clipboard.writeText(State.get('roomId')).then(() => toast('Código copiado')))
     })
 
-    // ── Export ──────────────────────────────────────────────────
+    // ── Export ───────────────────────────────────────────────────
     Export.setup()
 
-    // ── Panel tabs ──────────────────────────────────────────────
+    // ── Panel tabs ───────────────────────────────────────────────
     document.querySelectorAll('[data-panel]').forEach(btn => {
       btn.addEventListener('click', () => {
         const target = btn.dataset.panel
@@ -1926,63 +1839,63 @@ const App = (() => {
         if (isLeft && target === 'board-view') {
           Board.init()
           const c = $('board-canvas')
-          if (c) c.style.cursor = State.get('boardTool')==='text' ? 'text' : 'crosshair'
+          if (c) c.style.cursor = State.get('boardTool') === 'text' ? 'text' : 'crosshair'
         }
       })
     })
 
-    // ── Board tools ─────────────────────────────────────────────
+    // ── Board tools ──────────────────────────────────────────────
     document.querySelectorAll('[data-btool]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('[data-btool]').forEach(b => b.classList.remove('active'))
         btn.classList.add('active'); State.set('boardTool', btn.dataset.btool)
         const c = $('board-canvas')
-        if (c) c.style.cursor = State.get('boardTool')==='text' ? 'text' : 'crosshair'
+        if (c) c.style.cursor = State.get('boardTool') === 'text' ? 'text' : 'crosshair'
       })
     })
     $('board-color').addEventListener('input', e => State.set('boardColor', e.target.value))
     $('board-width').addEventListener('input', e => State.set('boardWidth', +e.target.value))
     $('btn-clear-board').addEventListener('click', () => {
-      if (State.get('role')==='observer') { toast('Sin permisos'); return }
+      if (State.get('role') === 'observer') { toast('Sin permisos'); return }
       if (!confirm('¿Limpiar toda la pizarra?')) return
       const ys = Yjs.getStrokes()
       if (ys) Yjs.getDoc().transact(() => ys.delete(0, ys.length))
       State.set('strokes', []); toast('Pizarra limpiada')
     })
 
-    // ── F5: Host policy checkbox ────────────────────────────────
+    // ── Host policy checkbox (F5) ─────────────────────────────────
     $('chk-revoke-on-disconnect').addEventListener('change', e => {
       Yjs.setHostPolicy(e.target.checked)
     })
 
-    // ── Resize handle ───────────────────────────────────────────
-    let _rx=false, _rx0=0, _rw0=0
+    // ── Resize handle ────────────────────────────────────────────
+    let _rx = false, _rx0 = 0, _rw0 = 0
     $('resize-handle').addEventListener('mousedown', e => {
-      _rx=true; _rx0=e.clientX; _rw0=$('panel-left').offsetWidth
+      _rx = true; _rx0 = e.clientX; _rw0 = $('panel-left').offsetWidth
       $('resize-handle').classList.add('dragging')
-      document.body.style.userSelect='none'; document.body.style.cursor='col-resize'
+      document.body.style.userSelect = 'none'; document.body.style.cursor = 'col-resize'
     })
     document.addEventListener('mousemove', e => {
       if (!_rx) return
-      $('panel-left').style.width = clamp(_rw0+(e.clientX-_rx0), 280, window.innerWidth-280)+'px'
+      $('panel-left').style.width = clamp(_rw0 + (e.clientX - _rx0), 280, window.innerWidth - 280) + 'px'
     })
     document.addEventListener('mouseup', () => {
-      if (!_rx) return; _rx=false
+      if (!_rx) return; _rx = false
       $('resize-handle').classList.remove('dragging')
-      document.body.style.userSelect=''; document.body.style.cursor=''
-      if (State.get('leftPanel')==='board-view') Board.resize()
+      document.body.style.userSelect = ''; document.body.style.cursor = ''
+      if (State.get('leftPanel') === 'board-view') Board.resize()
     })
 
-    // ── Global shortcuts ────────────────────────────────────────
+    // ── Global shortcuts ─────────────────────────────────────────
     document.addEventListener('keydown', e => {
       if (!e.altKey) return
-      if (e.key==='b') document.querySelector('[data-panel="board-view"]').click()
-      if (e.key==='e') document.querySelector('[data-panel="editor-view"]').click()
-      if (e.key==='c') document.querySelector('[data-panel="chat-view"]').click()
-      if (e.key==='p') document.querySelector('[data-panel="pr-view"]').click()
+      if (e.key === 'b') document.querySelector('[data-panel="board-view"]').click()
+      if (e.key === 'e') document.querySelector('[data-panel="editor-view"]').click()
+      if (e.key === 'c') document.querySelector('[data-panel="chat-view"]').click()
+      if (e.key === 'p') document.querySelector('[data-panel="pr-view"]').click()
     })
 
-    // ── URL auto-fill ───────────────────────────────────────────
+    // ── URL auto-fill ────────────────────────────────────────────
     const urlRoom = new URLSearchParams(location.search).get('room')
     if (urlRoom) {
       $('tab-btn-join').click()
