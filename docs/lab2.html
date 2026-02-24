@@ -568,6 +568,7 @@ $$\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}$$
 /* ═══════════════════════════════════════════════════════════════════
    UTILS  — funciones puras sin efectos secundarios
 ═══════════════════════════════════════════════════════════════════ */
+// Nota: la destructuring se hace DESPUÉS de definir Utils (ver línea de abajo del módulo)
 
 const Utils = (() => {
   const $ = id => document.getElementById(id)
@@ -617,6 +618,9 @@ const Utils = (() => {
   return { $, rand, genId, genRoom, peerColor, initials, clamp, escHtml,
            debounce, applyDiff, sha256, download }
 })()
+
+const { $, rand, genId, genRoom, peerColor, initials, clamp, escHtml,
+        debounce, applyDiff, sha256, download } = Utils
 const State = (() => {
   const _s = {
     peerId: null, name: 'Anónimo', role: 'observer', roomId: null,
