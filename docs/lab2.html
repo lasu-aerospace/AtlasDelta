@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LabColab — Editor Científico Colaborativo</title>
+<title>LabColab — Calculadora Científica</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
@@ -308,8 +308,8 @@ input,textarea{font:inherit;color:inherit;}
 <div id="modal-overlay" class="modal-overlay active">
   <div class="modal">
     <div class="modal-logo">⬡</div>
-    <h2 class="modal-title">LabColab</h2>
-    <p class="modal-sub">// editor científico descentralizado</p>
+    <h2 class="modal-title">OpenLab</h2>
+    <p class="modal-sub">// editor científico</p>
     <div class="modal-tabs">
       <button class="modal-tab active" id="tab-btn-create">Crear sala</button>
       <button class="modal-tab" id="tab-btn-join">Unirse</button>
@@ -366,7 +366,7 @@ input,textarea{font:inherit;color:inherit;}
 <!-- ── MAIN APP ── -->
 <div id="app" class="app" style="display:none;">
   <header class="topbar">
-    <div class="topbar-logo">⬡ <span>LabColab</span></div>
+    <div class="topbar-logo">⬡ <span>OpenLab</span></div>
     <div class="topbar-sep"></div>
     <div class="room-badge">
       <span class="room-label">sala</span>
@@ -543,6 +543,12 @@ input,textarea{font:inherit;color:inherit;}
 ═══════════════════════════════════════════════════════════════════ */
 const CONFIG = Object.freeze({
   AUTOSAVE_MS:     3000,
+  // Múltiples servidores de señalización para resiliencia P2P
+  SIGNALING:       [
+    'wss://y-webrtc-eu.fly.dev',
+    'wss://y-webrtc-ug.fly.dev',
+    'wss://y-webrtc.fly.dev',
+  ],
   PEER_COLORS:     ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#34d399','#fb923c','#e879f9'],
   DEFAULT_DOC: `# Nuevo documento científico
 
@@ -1062,12 +1068,26 @@ const Yjs = (() => {
     // La sala se identifica con roomId + hash del password para aislar salas
     const roomKey  = password ? roomId + '-' + await _hashRoom(password) : roomId
     _provider = new _WebrtcProvider(roomKey, _doc, {
-      signaling: ['wss://y-webrtc-eu.fly.dev'],
-      // El password cifra la señalización WebRTC (no el documento)
+      signaling: CONFIG.SIGNALING,  // múltiples servidores para resiliencia
       password:  password || null,
       maxConns:  20,
-      awareness: null, // se usa la awareness built-in del provider
     })
+
+    // ── Connection watchdog: reemite estado awareness si la conexión cae ──
+    setInterval(() => {
+      if (!_provider) return
+      const nowConnected = _provider.connected
+      Bus.emit('connection:status', { status: nowConnected ? 'connected' : 'connecting' })
+      State.set('connected', nowConnected)
+      // Refrescar awareness local para que otros peers lo reciban al reconectar
+      if (!nowConnected) {
+        try {
+          const aw = _provider.awareness
+          const cur = aw.getLocalState()
+          if (cur) aw.setLocalState({ ...cur })
+        } catch(_e) {}
+      }
+    }, 5000)
 
     // ── Awareness (incluida en y-webrtc) ──────────────────────
     const awareness = _provider.awareness
@@ -1285,7 +1305,7 @@ const Awareness = (() => {
   return { getStates, setLocalState, setLocalField }
 })()
 const Editor = (() => {
-  let _last = '', _sel = { start:0, end:0 }
+  let _last = '', _sel = { start:0, end:0 }, _cursorRaf = null
 
   const _ta       = () => $('editor-textarea')
   const _saveSel  = () => { const t = _ta(); _sel = { start:t.selectionStart, end:t.selectionEnd } }
@@ -1312,9 +1332,14 @@ const Editor = (() => {
     _apply(ta.value.slice(0, s) + text + ta.value.slice(e), s + text.length, s + text.length)
   }
 
+  // Throttle cursor broadcasts via RAF: evita saturar awareness en cada tecla
   const _broadcastCursor = () => {
     if (!State.get('peerId')) return
-    Awareness.setLocalField('cursor', { pos:_ta().selectionStart, name:State.get('name') })
+    if (_cursorRaf) return
+    _cursorRaf = requestAnimationFrame(() => {
+      _cursorRaf = null
+      Awareness.setLocalField('cursor', { pos: _ta().selectionStart, name: State.get('name') })
+    })
   }
 
   const _debouncedHash = debounce(async () => {
@@ -1442,7 +1467,7 @@ const Preview = (() => {
   return { setup, render }
 })()
 const Board = (() => {
-  let _c, _ctx, _dpr=1, _init=false, _peers={}, _raf=null
+  let _c, _ctx, _dpr=1, _init=false, _peers={}, _raf=null, _awarenessRaf=null
 
   const _sched = () => { if (!_raf) _raf = requestAnimationFrame(() => { _raf=null; _draw() }) }
 
@@ -1545,7 +1570,14 @@ const Board = (() => {
     const {x,y}=_pos(e), s=State.get('activeStroke')
     s.x2=x; s.y2=y
     if (s.tool==='pen'||s.tool==='eraser') s.points.push([x,y])
-    Awareness.setLocalField('boardStroke',{...s}); _sched()
+    // Throttle awareness via RAF: evita saturar la red en cada mousemove
+    if (!_awarenessRaf) {
+      _awarenessRaf = requestAnimationFrame(() => {
+        Awareness.setLocalField('boardStroke', {...State.get('activeStroke')})
+        _awarenessRaf = null
+      })
+    }
+    _sched()
   }
 
   const _end = () => {
@@ -1625,6 +1657,104 @@ const Chat = (() => {
     })
   }
   return { setup }
+})()
+/* ═══════════════════════════════════════════════════════════════════
+   REMOTE CURSORS  — renderiza la posición de cursor de cada peer
+   en el textarea usando un mirror div para calcular coordenadas px
+═══════════════════════════════════════════════════════════════════ */
+const RemoteCursors = (() => {
+  let _mirror = null
+
+  // Crea (o reutiliza) un div espejo invisible del textarea para medir posiciones de texto
+  const _getMirror = ta => {
+    if (_mirror && document.body.contains(_mirror)) {
+      _mirror.style.width  = ta.offsetWidth  + 'px'
+      _mirror.style.height = ta.offsetHeight + 'px'
+      return _mirror
+    }
+    const s = getComputedStyle(ta)
+    _mirror = document.createElement('div')
+    ;['fontFamily','fontSize','fontWeight','lineHeight','letterSpacing',
+      'paddingTop','paddingRight','paddingBottom','paddingLeft',
+      'borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth',
+      'tabSize','boxSizing'].forEach(p => { _mirror.style[p] = s[p] })
+    _mirror.style.position   = 'absolute'
+    _mirror.style.visibility = 'hidden'
+    _mirror.style.overflow   = 'hidden'
+    _mirror.style.top        = '-9999px'
+    _mirror.style.left       = '-9999px'
+    _mirror.style.whiteSpace = 'pre-wrap'
+    _mirror.style.wordBreak  = 'break-word'
+    _mirror.style.width      = ta.offsetWidth  + 'px'
+    _mirror.style.height     = ta.offsetHeight + 'px'
+    document.body.appendChild(_mirror)
+    return _mirror
+  }
+
+  // Devuelve coordenadas {x, y, h} en px para la posición de carácter `pos` en el textarea
+  const _coords = (ta, pos) => {
+    try {
+      const mirror = _getMirror(ta)
+      const safe   = Math.min(Math.max(pos, 0), ta.value.length)
+      const pre    = ta.value.slice(0, safe)
+      mirror.innerHTML = pre
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\n/g,'<br>') + '<span id="_rc_mark">|</span>'
+      const mark = mirror.querySelector('#_rc_mark')
+      if (!mark) return null
+      const mRect  = mirror.getBoundingClientRect()
+      const sRect  = mark.getBoundingClientRect()
+      const taRect = ta.getBoundingClientRect()
+      return {
+        x: (sRect.left - taRect.left) + (ta.scrollLeft || 0),
+        y: (sRect.top  - taRect.top)  + (ta.scrollTop  || 0),
+        h: sRect.height || 20,
+      }
+    } catch(_e) { return null }
+  }
+
+  let _rafId = null
+  const render = states => {
+    if (_rafId) cancelAnimationFrame(_rafId)
+    _rafId = requestAnimationFrame(() => {
+      _rafId = null
+      const container = $('remote-cursors')
+      const ta        = $('editor-textarea')
+      if (!container || !ta) return
+      container.innerHTML = ''
+      if (State.get('leftPanel') !== 'editor-view') return
+      const myId = State.get('peerId')
+      states.forEach((state, id) => {
+        if (id.toString() === myId) return
+        const pos = state?.cursor?.pos
+        if (pos == null) return
+        const coords = _coords(ta, pos)
+        if (!coords) return
+        const color = state.color || peerColor(id.toString())
+        const name  = (state.name || '?').split(' ')[0].slice(0, 14)
+        const line  = document.createElement('div')
+        line.className      = 'remote-cursor-line'
+        line.style.cssText  = `left:${coords.x}px;top:${coords.y - (ta.scrollTop||0)}px;height:${coords.h}px;background:${color};`
+        const lbl           = document.createElement('div')
+        lbl.className       = 'remote-cursor-label'
+        lbl.style.background = color
+        lbl.textContent     = name
+        line.appendChild(lbl)
+        container.appendChild(line)
+      })
+    })
+  }
+
+  const setup = () => {
+    Bus.on('awareness:changed', ({ states }) => render(states))
+    $('editor-textarea')?.addEventListener('scroll', () => {
+      render(Awareness.getStates())
+    }, { passive: true })
+    Bus.on('panel:switched', () => {
+      if (State.get('leftPanel') === 'editor-view') render(Awareness.getStates())
+    })
+  }
+  return { setup, render }
 })()
 const PR = (() => {
   // PRs stored as JSON string in ySession['pullRequests']
@@ -1750,10 +1880,21 @@ const Session = (() => {
     Editor.setup()
     Preview.setup()
     Chat.setup()
+    RemoteCursors.setup()
     Board.init()
     Yjs.watchRoleSignals()
     Yjs.watchHostPresence()
     PR.setup()
+
+    // Pausa actualizaciones costosas cuando el tab está en segundo plano (Page Visibility API)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        // Al volver, refrescar estado de awareness para que otros peers nos detecten
+        const aw = Yjs.getAwareness()
+        if (aw) { const s = aw.getLocalState(); if (s) aw.setLocalState({ ...s }) }
+        Bus.emit('awareness:changed', { states: Awareness.getStates() })
+      }
+    })
 
     Bus.emit('role:changed', { role: State.get('role') })
 
@@ -1840,6 +1981,7 @@ const App = (() => {
         const target = btn.dataset.panel
         const isLeft = btn.closest('.panel-tabs').closest('#panel-left') !== null
         UI.switchPanel(target, isLeft ? 'left' : 'right')
+        Bus.emit('panel:switched', { panel: target, side: isLeft ? 'left' : 'right' })
         if (isLeft && target === 'board-view') {
           Board.init()
           const c = $('board-canvas')

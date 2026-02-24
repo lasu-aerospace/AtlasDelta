@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>OMP-VI · Orbital Mission Planner</title>
+<title>Orbital Mission Planner — Calculadora Científica</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
 :root{--bg:#04050a;--s0:#070910;--s1:#0c0f1a;--s2:#10141f;--bd:#141826;--bd2:#1c2236;
@@ -125,6 +125,68 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
 /* dv stacked bar */
 .dvbar-wrap{height:14px;border-radius:3px;overflow:hidden;display:flex;margin:3px 0;background:var(--s2)}
 .dvbar-seg{height:100%;transition:width .4s;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:7px;white-space:nowrap;overflow:hidden}
+
+/* ── HELP MODAL ── */
+#help-modal{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(7px);z-index:8500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s;}
+#help-modal.active{opacity:1;pointer-events:all;}
+.help-box{background:var(--s0);border:1px solid var(--bd2);border-radius:8px;width:min(860px,96vw);max-height:88vh;display:flex;flex-direction:column;animation:compatIn .25s ease;}
+.help-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 22px 0;flex-shrink:0;}
+.help-hdr-left{display:flex;align-items:center;gap:10px;}
+.help-hdr-title{font-family:'Instrument Serif',serif;font-size:1.3rem;font-weight:400;color:var(--txt);}
+.help-hdr-sub{font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:var(--txt3);}
+.help-close{width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:transparent;color:var(--txt3);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;}
+.help-close:hover{background:var(--s2);color:var(--txt);border-color:var(--bd2);}
+.help-tabs{display:flex;gap:2px;padding:12px 22px 0;flex-shrink:0;border-bottom:1px solid var(--bd);}
+.htab2{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:4px 4px 0 0;color:var(--txt3);cursor:pointer;transition:.12s;border:1px solid transparent;border-bottom:none;margin-bottom:-1px;}
+.htab2:hover{color:var(--txt2);}
+.htab2.on{color:var(--cy);background:var(--s1);border-color:var(--bd);border-bottom-color:var(--s1);}
+.help-body{overflow-y:auto;padding:22px 26px 26px;flex:1;scrollbar-width:thin;scrollbar-color:var(--bd2) transparent;}
+.help-body::-webkit-scrollbar{width:4px}.help-body::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px;}
+.help-panel{display:none;}.help-panel.on{display:block;}
+/* help content */
+.hs{font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:.22em;text-transform:uppercase;color:var(--cy);display:flex;align-items:center;gap:8px;margin:18px 0 8px;}
+.hs::after{content:'';flex:1;height:1px;background:rgba(23,212,232,.18);}
+.hs:first-child{margin-top:0;}
+.hs.am{color:var(--am)}.hs.am::after{background:rgba(232,160,23,.18);}
+.hs.pu{color:var(--pu)}.hs.pu::after{background:rgba(139,110,245,.18);}
+.hs.gn{color:var(--gn)}.hs.gn::after{background:rgba(58,232,130,.18);}
+.hs.rd{color:var(--rd)}.hs.rd::after{background:rgba(232,74,58,.18);}
+.hp{font-size:11.5px;color:var(--txt2);line-height:1.75;margin-bottom:8px;}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:10px;}
+.hcard{background:var(--s1);border:1px solid var(--bd);border-radius:5px;padding:11px 13px;}
+.hcard-title{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;}
+.hcard-title.cy{color:var(--cy)}.hcard-title.am{color:var(--am)}.hcard-title.pu{color:var(--pu)}.hcard-title.gn{color:var(--gn)}.hcard-title.rd{color:var(--rd)}
+.hcard p{font-size:10.5px;color:var(--txt2);line-height:1.65;}
+.hkbd{display:inline-block;background:var(--s2);border:1px solid var(--bd2);border-radius:3px;padding:1px 6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--txt);margin:0 2px;}
+.htable{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:10px;}
+.htable th{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);text-align:left;padding:5px 10px;border-bottom:1px solid var(--bd);background:var(--s1);}
+.htable td{padding:5px 10px;color:var(--txt2);border-bottom:1px solid var(--bd);vertical-align:top;}
+.htable td:first-child{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cy);white-space:nowrap;}
+.htable tr:last-child td{border-bottom:none;}
+.htable tr:hover td{background:rgba(255,255,255,.015);}
+.hformula{background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt2);line-height:1.9;margin-bottom:8px;}
+.hformula .cy{color:var(--cy)}.hformula .am{color:var(--am)}.hformula .pu{color:var(--pu)}.hformula .gn{color:var(--gn)}.hformula .rd{color:var(--rd)}
+.htip{background:rgba(23,212,232,.06);border-left:2px solid var(--cy);border-radius:0 4px 4px 0;padding:8px 12px;font-size:10.5px;color:var(--txt2);line-height:1.65;margin-bottom:8px;}
+.htip.am{background:rgba(232,160,23,.06);border-left-color:var(--am);}
+.htip.rd{background:rgba(232,74,58,.06);border-left-color:var(--rd);}
+
+.htab-help:hover{color:var(--pu)!important;}
+
+#compat-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:9000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
+#compat-modal.active{opacity:1;pointer-events:all;}
+.compat-box{background:var(--s0);border:1px solid rgba(232,160,23,.4);border-radius:10px;padding:24px 28px;width:min(440px,94vw);animation:compatIn .3s ease;}
+@keyframes compatIn{from{transform:translateY(16px) scale(.97);opacity:0;}to{transform:none;opacity:1;}}
+.compat-hdr{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+.compat-hdr h3{font-family:'Instrument Serif',serif;font-size:1.15rem;font-weight:400;color:var(--am);}
+.compat-issues{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+.compat-issue{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:4px;border:1px solid var(--bd);}
+.compat-issue.compat-error{background:rgba(232,74,58,.07);border-color:rgba(232,74,58,.3);}
+.compat-issue.compat-warning{background:rgba(232,160,23,.07);border-color:rgba(232,160,23,.3);}
+.compat-icon{font-size:1.15rem;flex-shrink:0;margin-top:1px;}
+.compat-title{font-weight:700;font-size:11px;color:var(--txt);margin-bottom:2px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;}
+.compat-msg{font-size:10.5px;color:var(--txt2);line-height:1.55;}
+.compat-continue{width:100%;background:rgba(232,160,23,.15);border:1px solid rgba(232,160,23,.45);border-radius:4px;color:var(--am);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:8px;cursor:pointer;transition:.15s;}
+.compat-continue:hover{background:rgba(232,160,23,.25);}
 </style>
 </head>
 <body>
@@ -136,6 +198,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
   <div class="htabs">
     <div class="htab on" data-mode="hohmann">Hohmann · Lambert</div>
     <div class="htab" data-mode="ascent">Ascenso Orbital</div>
+    <div class="htab htab-help" id="btn-help" style="border-left:1px solid var(--bd);margin-left:4px;color:var(--pu);">⊕ Instrucciones</div>
   </div>
   <div class="hright">
     <div class="hind"><div class="hdot hdot-g"></div>SOLVER ACTIVO</div>
@@ -246,6 +309,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
         <span class="vpbadge" id="vp0-badge">Kepler real</span>
       </div>
       <div style="display:flex;gap:4px">
+        <span class="vpbtn" data-vi="0" data-a="save" title="Guardar imagen HD">⬇</span>
         <span class="vpbtn" data-vi="0" data-a="solo">⤢</span>
         <span class="vpbtn" data-vi="0" data-a="reset">⟳</span>
       </div>
@@ -262,6 +326,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
       </div>
       <div style="display:flex;gap:4px">
         <span class="vpbtn" id="vp1-extra-btn" style="display:none"></span>
+        <span class="vpbtn" data-vi="1" data-a="save" title="Guardar imagen HD">⬇</span>
         <span class="vpbtn" data-vi="1" data-a="solo">⤢</span>
         <span class="vpbtn" id="vp1-calc-btn">⟳ Calcular</span>
       </div>
@@ -288,6 +353,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
         <span class="vpbadge" id="vp2-badge">Hipérbola escape · km</span>
       </div>
       <div style="display:flex;gap:4px">
+        <span class="vpbtn" data-vi="2" data-a="save" title="Guardar imagen HD">⬇</span>
         <span class="vpbtn" data-vi="2" data-a="solo">⤢</span>
         <span class="vpbtn" data-vi="2" data-a="reset">⟳</span>
       </div>
@@ -303,6 +369,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
         <span class="vpbadge" id="vp3-badge">Hipérbola captura · km</span>
       </div>
       <div style="display:flex;gap:4px">
+        <span class="vpbtn" data-vi="3" data-a="save" title="Guardar imagen HD">⬇</span>
         <span class="vpbtn" data-vi="3" data-a="solo">⤢</span>
         <span class="vpbtn" data-vi="3" data-a="reset">⟳</span>
       </div>
@@ -422,16 +489,274 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;b
 </div></div>
 </div><!-- /app-body -->
 
+<!-- ════ HELP MODAL ════ -->
+<div id="help-modal">
+  <div class="help-box">
+
+    <div class="help-hdr">
+      <div class="help-hdr-left">
+        <div class="hmark" style="width:26px;height:26px;font-size:12px">⊙</div>
+        <div>
+          <div class="help-hdr-title"><em>OMP-VI</em> — Instrucciones de uso</div>
+          <div class="help-hdr-sub">Orbital Mission Planner · Guía de referencia</div>
+        </div>
+      </div>
+      <button class="help-close" id="help-close">✕</button>
+    </div>
+
+    <div class="help-tabs">
+      <div class="htab2 on" data-hp="general">Visión general</div>
+      <div class="htab2" data-hp="hohmann">Hohmann · Lambert</div>
+      <div class="htab2" data-hp="ascent">Ascenso Orbital</div>
+      <div class="htab2" data-hp="formulas">Formulario</div>
+    </div>
+
+    <div class="help-body">
+
+      <!-- ── PANEL: GENERAL ── -->
+      <div class="help-panel on" id="hp-general">
+        <div class="hs">Interfaz</div>
+        <p class="hp">OMP-VI tiene dos modos de análisis accesibles desde las pestañas superiores. Cada modo ocupa los cuatro <strong>viewports</strong> centrales de forma diferente. Los paneles izquierdo y derecho muestran los controles y resultados del modo activo.</p>
+        <div class="hgrid">
+          <div class="hcard"><div class="hcard-title cy">Hohmann · Lambert</div><p>Planificación de misiones interplanetarias. Calcula ventanas de lanzamiento óptimas, hipérbolas de escape/captura y balance de masa propelente.</p></div>
+          <div class="hcard"><div class="hcard-title am">Ascenso Orbital</div><p>Simulación de trayectoria ascendente 2D desde tierra hasta órbita. Modela 2 etapas con pérdidas gravitatorias y aerodinámicas reales.</p></div>
+        </div>
+
+        <div class="hs">Controles de viewport</div>
+        <table class="htable">
+          <thead><tr><th>Acción</th><th>Cómo</th></tr></thead>
+          <tbody>
+            <tr><td>Pan (desplazar)</td><td>Clic + arrastrar sobre el viewport</td></tr>
+            <tr><td>Zoom</td><td>Rueda del ratón sobre el viewport</td></tr>
+            <tr><td>Reset cámara</td><td>Tecla <span class="hkbd">R</span> con el cursor sobre el viewport, o botón ⟳</td></tr>
+            <tr><td>Pantalla completa</td><td>Botón <span class="hkbd">⤢</span> — vuelve a clic de nuevo para restaurar la cuadrícula 2×2</td></tr>
+            <tr><td>Guardar imagen HD</td><td>Botón <span class="hkbd">⬇</span> — exporta PNG a 3× la resolución nativa</td></tr>
+          </tbody>
+        </table>
+
+        <div class="hs">Flujo de trabajo recomendado</div>
+        <div class="htip">① Selecciona el modo en la barra superior → ② Ajusta parámetros en el panel izquierdo → ③ Haz clic en <strong>⟳ Calcular</strong> en el Porkchop/Carpet → ④ Haz clic sobre el mapa de calor para seleccionar la ventana óptima → ⑤ Lee el resultado detallado en el panel derecho.</div>
+      </div>
+
+      <!-- ── PANEL: HOHMANN ── -->
+      <div class="help-panel" id="hp-hohmann">
+        <div class="hs">Los 4 viewports — modo Hohmann</div>
+        <div class="hgrid">
+          <div class="hcard"><div class="hcard-title cy">VP 0 · Sistema Solar</div><p>Vista heliocéntrica animada en tiempo real. Muestra órbitas keplerinas, la trayectoria de transferencia Lambert y las hipérbolas de salida/llegada (a escala SOI).</p></div>
+          <div class="hcard"><div class="hcard-title am">VP 1 · Porkchop Plot</div><p>Mapa de calor C₃ o Δv_total en función de fecha de salida × tiempo de vuelo (TOF). Haz clic en cualquier punto para seleccionar esa ventana de lanzamiento.</p></div>
+          <div class="hcard"><div class="hcard-title cy">VP 2 · Hipérbola escape</div><p>Geometría de la hipérbola de salida alrededor del planeta origen: periapsis, asíntotas y Δv de escape desde la órbita de parkeo.</p></div>
+          <div class="hcard"><div class="hcard-title pu">VP 3 · Hipérbola captura</div><p>Geometría de la hipérbola de llegada al planeta destino: Δv de inserción en órbita de captura y excentricidad hiperbólica.</p></div>
+        </div>
+
+        <div class="hs">Panel izquierdo — parámetros</div>
+        <table class="htable">
+          <thead><tr><th>Parámetro</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td>Origen / Destino</td><td>Planetas de partida y llegada. Cambia ambos para recomputar el Porkchop automáticamente.</td></tr>
+            <tr><td>Órbita parkeo (km)</td><td>Altitud de la órbita circular de espera en el planeta origen. Afecta el Δv de escape y la geometría VP 2.</td></tr>
+            <tr><td>Captura destino (km)</td><td>Altitud de la órbita de inserción en el planeta destino. Afecta el Δv de frenado y la geometría VP 3.</td></tr>
+            <tr><td>m_f / Isp / Fracción prop.</td><td>Masa seca, impulso específico y fracción de propelente de la nave. Determinan la masa inicial y el margen de Δv.</td></tr>
+            <tr><td>Velocidad sim.</td><td>Velocidad del reloj de simulación (días/segundo). Solo anima el VP 0; no afecta los cálculos.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="hs">Porkchop Plot — uso avanzado</div>
+        <p class="hp">El rango temporal y el TOF máximo se ajustan en el recuadro inferior izquierdo del VP 1. Para cambiar la métrica mostrada (C₃ ↔ Δv_total) usa el botón <strong>→ Δv_tot</strong> en la barra del VP 1. El marcador verde <span style="color:var(--gn)">╋</span> indica el mínimo global de la métrica activa.</p>
+        <div class="htip am">El punto seleccionado (círculo ámbar) actualiza simultáneamente el VP 0 (trayectoria), VP 2 (salida) y VP 3 (llegada), además de todos los datos del panel derecho.</div>
+
+        <div class="hs">Panel derecho — resultados</div>
+        <p class="hp">Muestra la misión seleccionada con fechas, TOF, tres fases (Partida · Crucero · Llegada), balance de masa y energía orbital. El <strong>margen Δv</strong> en verde/rojo indica si la nave puede completar la misión con la propulsión configurada.</p>
+      </div>
+
+      <!-- ── PANEL: ASCENT ── -->
+      <div class="help-panel" id="hp-ascent">
+        <div class="hs">Los 4 viewports — modo Ascenso</div>
+        <div class="hgrid">
+          <div class="hcard"><div class="hcard-title am">VP 0 · Perfil trayectoria</div><p>Sección transversal de la Tierra con la trayectoria simulada superpuesta. Colores: <span style="color:var(--am)">ámbar</span> = etapa 1, <span style="color:var(--pu)">púrpura</span> = etapa 2. Muestra MaxQ y eventos de separación.</p></div>
+          <div class="hcard"><div class="hcard-title gn">VP 1 · Carpet Plot</div><p>Fracción de payload λ(%) en función de altitud objetivo × Isp₁. Haz clic para fijar la altitud objetivo en el panel izquierdo.</p></div>
+          <div class="hcard"><div class="hcard-title am">VP 2 · Perfil v(h)</div><p>Velocidad total vs altitud durante el ascenso. Superpone la curva de velocidad circular para ver cuándo se alcanza (o no) la velocidad orbital.</p></div>
+          <div class="hcard"><div class="hcard-title pu">VP 3 · Atmósfera + q(t)</div><p>Densidad ISA (escala log₁₀) y presión dinámica q(t) en función de altitud. La línea roja de MaxQ marca el punto de mayor carga aerodinámica.</p></div>
+        </div>
+
+        <div class="hs">Panel izquierdo — parámetros</div>
+        <table class="htable">
+          <thead><tr><th>Parámetro</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td>Sitio de lanzamiento</td><td>Latitud del sitio. Afecta la velocidad orbital efectiva por rotación terrestre.</td></tr>
+            <tr><td>Altitud objetivo</td><td>Altitud de la órbita circular objetivo (km). El simulador marca la órbita en VP 0 y VP 2.</td></tr>
+            <tr><td>Tipo de órbita</td><td>LEO circular, SSO (helio-síncrona) o GTO (transferencia GEO). Informativo; afecta el cálculo de referencia Δv.</td></tr>
+            <tr><td>Etapa 1 / 2</td><td>Masa estructural (kg), masa de propelente (kg), Isp (s) y empuje (kN) de cada etapa.</td></tr>
+            <tr><td>Cd / Área / Pitch</td><td>Coeficiente de arrastre, área de referencia y ángulo de kick (inclinación inicial del vector de empuje).</td></tr>
+          </tbody>
+        </table>
+
+        <div class="hs">Simulación</div>
+        <p class="hp">Pulsa <strong>▶ Simular trayectoria</strong> para ejecutar la integración numérica (Euler paso 0,5 s). El resultado aparece instantáneamente. El Carpet Plot requiere <strong>⟳ Carpet</strong> por separado (cálculo analítico 2 etapas).</p>
+        <div class="htip rd">Una relación empuje/peso inicial (T/W) inferior a 1,2 puede resultar en trayectoria sub-orbital. Verifica el valor en el panel derecho.</div>
+      </div>
+
+      <!-- ── PANEL: FORMULAS ── -->
+      <div class="help-panel" id="hp-formulas">
+        <div class="hs">Mecánica orbital heliocéntrica</div>
+        <div class="hformula">
+          <span class="am">Ecuación de Kepler:</span>  M = E − e·sin(E)<br>
+          <span class="am">Órbita de transferencia (a_t):</span>  a_t = (r₁ + r₂) / 2<br>
+          <span class="cy">Energía específica:</span>  ε = −μ_☉ / (2·a_t)<br>
+          <span class="cy">TOF Hohmann:</span>  t = π·√(a_t³ / μ_☉)<br>
+          <span class="pu">Ángulo de fase req.:</span>  φ = π − n_dest·TOF
+        </div>
+        <div class="hs am">Hipérbola de escape / captura</div>
+        <div class="hformula">
+          <span class="am">v∞ (velocidad hiperbólica):</span>  v∞ = |v_nave − v_planeta| @ SOI<br>
+          <span class="am">C₃:</span>  C₃ = v∞²  [km²/s²]<br>
+          <span class="cy">Δv escape:</span>  Δv = √(v∞² + 2μ/r_p) − √(μ/r_p)<br>
+          <span class="cy">Excentricidad:</span>  e = 1 + r_p·v∞² / μ<br>
+          <span class="pu">Semi-eje mayor:</span>  a = −μ / v∞²  (negativo = hipérbola)
+        </div>
+        <div class="hs gn">Ecuación de cohete (Tsiolkovsky)</div>
+        <div class="hformula">
+          <span class="gn">Δv = Isp · g₀ · ln(m₀/m_f)</span><br>
+          <span class="cy">m₀ = m_f · e^(Δv / (Isp·g₀))</span><br>
+          <span class="am">Fracción de payload:</span>  λ = m_pay / m₀<br>
+          <span class="pu">g₀ = 9.80665 m/s²</span>
+        </div>
+        <div class="hs rd">Atmósfera ISA — pérdidas ascenso</div>
+        <div class="hformula">
+          <span class="rd">Presión dinámica:</span>  q = ½·ρ(h)·v²<br>
+          <span class="am">Arrastre:</span>  D = q·C_d·A_ref<br>
+          <span class="am">Pérd. gravedad:</span>  Δv_g ≈ ∫g·sin(γ)dt  ≈ 1250–1550 m/s<br>
+          <span class="rd">Pérd. arrastre:</span>  Δv_d ≈ ∫(D/m)dt  ≈ 100–200 m/s<br>
+          <span class="cy">ρ(h):</span>  modelo ISA por capas con decaimiento exponencial
+        </div>
+        <div class="htip">El solver Lambert usa <strong>variables universales</strong> (método de Bate-Mueller-White) con convergencia por bisección + Newton–Raphson. Preciso para TOF entre 30 y 900 días.</div>
+      </div>
+
+    </div><!-- /help-body -->
+  </div><!-- /help-box -->
+</div><!-- /help-modal -->
+
+<!-- ════ COMPAT MODAL ════ -->
+<div id="compat-modal">
+  <div class="compat-box">
+    <div class="compat-hdr"><span style="font-size:1.3rem">⚠</span><h3>Advertencias de compatibilidad</h3></div>
+    <div id="compat-issues" class="compat-issues"></div>
+    <button class="compat-continue" id="compat-continue">Entendido, continuar →</button>
+  </div>
+</div>
+
 <div class="sbar">
   <div class="si">Modo: <span id="sb-mode">Hohmann</span></div>
-  <div class="si" id="sb-info1">Origen: <span id="sb-or">Tierra</span></div>
-  <div class="si" id="sb-info2">Destino: <span id="sb-de">Marte</span></div>
+  <div class="si" id="sb-info1">T_sim: <span id="sb-t">0.000 yr</span></div>
+  <div class="si" id="sb-info2">Origen: <span id="sb-or">Tierra</span></div>
   <div class="si">Época: <span id="sb-ep">2026-01-01</span></div>
   <div class="si" id="sb-fps">FPS: <span>—</span></div>
   <div class="si" style="margin-left:auto">Drag: pan · Scroll: zoom · R: reset</div>
 </div>
 <script>
 'use strict';
+
+// ══ COMPAT CHECK (al estilo lab2) ══════════════════════════════
+const Compat = (() => {
+  const check = () => {
+    const issues = [];
+    if (window.innerWidth < 900)
+      issues.push({ level:'warning', icon:'📱',
+        title:'Pantalla angosta detectada',
+        msg:`OMP-VI está optimizado para pantallas ≥ 900 px de ancho. En dispositivos móviles o ventanas pequeñas la interfaz de 4 viewports puede quedar recortada o inutilizable. Se recomienda usar un escritorio o tablet en modo landscape.` });
+    if (window.screen && window.screen.width < 900)
+      issues.push({ level:'warning', icon:'🖥',
+        title:'Resolución de pantalla baja',
+        msg:`Resolución detectada: ${window.screen.width}×${window.screen.height} px. Para una experiencia óptima se recomienda una resolución mínima de 1280×720 px.` });
+    const ua = navigator.userAgent;
+    if (/Trident|MSIE/.test(ua))
+      issues.push({ level:'error', icon:'🚫',
+        title:'Internet Explorer no compatible',
+        msg:'OMP-VI requiere un navegador moderno: Chrome 90+, Firefox 88+, Safari 15+ o Edge 90+. Internet Explorer no soporta Canvas 2D avanzado ni ES2020.' });
+    else if (/Edge\/\d+/.test(ua) && !/Edg\//.test(ua))
+      issues.push({ level:'warning', icon:'⚠',
+        title:'Edge Legacy detectado',
+        msg:'Se recomienda actualizar a Microsoft Edge (Chromium) para mayor rendimiento en renderizado canvas.' });
+    if (typeof OffscreenCanvas === 'undefined')
+      issues.push({ level:'warning', icon:'🎨',
+        title:'OffscreenCanvas no disponible',
+        msg:'El guardado de imágenes en alta resolución puede ser más lento en este navegador. Se usará el método de fallback estándar.' });
+    return issues;
+  };
+
+  const showIfNeeded = () => {
+    const issues = check();
+    if (!issues.length) return;
+    const container = document.getElementById('compat-issues');
+    container.innerHTML = '';
+    issues.forEach(({ level, icon, title, msg }) => {
+      const d = document.createElement('div');
+      d.className = 'compat-issue compat-' + level;
+      d.innerHTML = `<span class="compat-icon">${icon}</span>
+        <div><div class="compat-title">${title}</div><div class="compat-msg">${msg}</div></div>`;
+      container.appendChild(d);
+    });
+    document.getElementById('compat-modal').classList.add('active');
+    document.getElementById('compat-continue').addEventListener('click', () => {
+      document.getElementById('compat-modal').classList.remove('active');
+    }, { once: true });
+  };
+
+  return { showIfNeeded };
+})();
+
+// ══ HD IMAGE SAVE ═══════════════════════════════════════════════
+// Renders the viewport canvas at SAVE_SCALE× resolution and downloads PNG
+const SAVE_SCALE = 3; // 3× native resolution for crisp exports
+
+function saveViewportHD(vpInstance, canvasId, filename) {
+  const srcCanvas = document.getElementById(canvasId);
+  if (!srcCanvas) return;
+
+  // Physical pixel dimensions of the live canvas
+  const W = srcCanvas.width;
+  const H = srcCanvas.height;
+
+  // Create offscreen canvas at SAVE_SCALE× the physical pixels
+  const offW = Math.round((W / (vpInstance.DPR || 1)) * SAVE_SCALE);
+  const offH = Math.round((H / (vpInstance.DPR || 1)) * SAVE_SCALE);
+
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width  = offW;
+  offCanvas.height = offH;
+
+  const offCtx = offCanvas.getContext('2d');
+  // Scale up: draw the live canvas stretched to offscreen canvas
+  offCtx.drawImage(srcCanvas, 0, 0, offW, offH);
+
+  // Trigger download
+  offCanvas.toBlob(blob => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename + '.png';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }, 'image/png');
+}
+
+// Map viewport index → VP instance + canvas id + name
+function getVpInfo(vi) {
+  // Resolved after vpXxx instances are created; use lazy lookup
+  const map = [
+    { get inst() { return typeof vpSS   !== 'undefined' ? (ST.mode==='hohmann' ? vpSS   : vpEarth)  : null; }, id:'c0' },
+    { get inst() { return typeof vpPK   !== 'undefined' ? vpPK   : null; }, id:'c1' },
+    { get inst() { return typeof vpDep  !== 'undefined' ? (ST.mode==='hohmann' ? vpDep  : vpVelAlt) : null; }, id:'c2' },
+    { get inst() { return typeof vpArr  !== 'undefined' ? (ST.mode==='hohmann' ? vpArr  : vpAtm)    : null; }, id:'c3' },
+  ];
+  return map[vi] || null;
+}
+
+const VP_NAMES = ['solar','porkchop','departure','arrival'];
+
 // ══ CONSTANTS ══════════════════════════════════════════════════
 const TAU=2*Math.PI, G0=9.80665;
 // Heliocentric
@@ -1259,8 +1584,8 @@ function drawAllVps(){
 let _lf=0,_fc=0,_ft=0;
 function frame(now){
   requestAnimationFrame(frame);const dt=Math.min((now-_lf)/1000,.1);_lf=now;
-  _fc++;_ft+=dt*1000;if(_ft>1000){document.querySelector('#sb-fps span').textContent=_fc;_fc=0;_ft=0;}
-  if(ST.mode==='hohmann'){const spd=parseFloat(document.getElementById('sel-spd').value||7);ST.simT+=dt*spd/365.25;document.getElementById('sb-t').textContent=ST.simT.toFixed(3)+' yr';}
+  _fc++;_ft+=dt*1000;if(_ft>1000){const fpsel=document.querySelector('#sb-fps span');if(fpsel)fpsel.textContent=_fc;_fc=0;_ft=0;}
+  if(ST.mode==='hohmann'){const spd=parseFloat(document.getElementById('sel-spd').value||7);ST.simT+=dt*spd/365.25;const sbT=document.getElementById('sb-t');if(sbT)sbT.textContent=ST.simT.toFixed(3)+' yr';}
   drawAllVps();
 }
 
@@ -1339,6 +1664,7 @@ document.addEventListener('click',e=>{
   const vpa=document.getElementById('vpa');const allVP=document.querySelectorAll('.vp');
   if(act==='solo'){if(vpa.classList.contains('solo')&&allVP[vi].classList.contains('active')){vpa.classList.remove('solo');allVP.forEach(v=>v.classList.remove('active'));}else{vpa.classList.add('solo');allVP.forEach((v,i)=>v.classList.toggle('active',i===vi));}setTimeout(()=>{[vpSS,vpPK,vpDep,vpArr,vpEarth,vpVelAlt,vpAtm].forEach(v=>v._resize?.());},80);}
   else if(act==='reset'){if(ST.mode==='hohmann'){[vpSS,null,vpDep,vpArr][vi]?.reset();if(vi===2)vpDep.autoFit();if(vi===3)vpArr.autoFit();}else{[vpEarth,null,vpVelAlt,vpAtm][vi]?.reset();if(vi===0)vpEarth.autoFit();}}
+  else if(act==='save'){const info=getVpInfo(vi);if(info&&info.inst){const ts=new Date().toISOString().slice(0,10);saveViewportHD(info.inst,'c'+vi,`omp-vp${vi}-${VP_NAMES[vi]}-${ts}`);}}
 });
 
 // HOH pk metric toggle - reuse vp1-extra-btn in hohmann mode
@@ -1356,6 +1682,27 @@ document.getElementById('vp1-extra-btn').style.display='inline';
 fitHohPlanets();fitAscent();
 updateHohRight();updateAscLeft();updateAscRight(null);
 computePK();
+// ── HELP MODAL ───────────────────────────────────────────────
+document.getElementById('btn-help').addEventListener('click',()=>{
+  document.getElementById('help-modal').classList.add('active');
+});
+document.getElementById('help-close').addEventListener('click',()=>{
+  document.getElementById('help-modal').classList.remove('active');
+});
+document.getElementById('help-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('help-modal'))
+    document.getElementById('help-modal').classList.remove('active');
+});
+document.querySelectorAll('.htab2').forEach(t=>{
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.htab2').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.help-panel').forEach(x=>x.classList.remove('on'));
+    this.classList.add('on');
+    document.getElementById('hp-'+this.dataset.hp).classList.add('on');
+  });
+});
+
+Compat.showIfNeeded();
 requestAnimationFrame(frame);
 </script>
 </body>
